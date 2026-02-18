@@ -1,6 +1,8 @@
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
+from fastapi.responses import StreamingResponse
+from io import BytesIO
 
 from app.models.clothing import Category, ClothingItem, ClothingSpec, CategoryLevel, ClothingType
 from app.schemas.clothing import (
@@ -101,6 +103,138 @@ class CategoryService:
         self.db.commit()
         return True
 
+    def export_to_excel(self) -> StreamingResponse:
+        from xlwt import Workbook
+        
+        wb = Workbook()
+        ws = wb.add_sheet('Sheet1')
+        
+        ws.write(0, 0, '대분류')
+        ws.write(0, 1, '중분류')
+        ws.write(0, 2, '품목')
+        ws.write(0, 3, '피복타입')
+        
+        row = 1
+        large_cats = self.db.query(Category).filter(
+            Category.level == CategoryLevel.LARGE, Category.is_active == True
+        ).order_by(Category.sort_order).all()
+        
+        for large in large_cats:
+            medium_cats = self.db.query(Category).filter(
+                Category.parent_id == large.id, Category.is_active == True
+            ).order_by(Category.sort_order).all()
+            
+            if not medium_cats:
+                ws.write(row, 0, large.name)
+                clothing_type = '완제품' if large.name == '완제품' else '맞춤피복'
+                ws.write(row, 3, clothing_type)
+                row += 1
+                continue
+            
+            for medium in medium_cats:
+                small_cats = self.db.query(Category).filter(
+                    Category.parent_id == medium.id, Category.is_active == True
+                ).order_by(Category.sort_order).all()
+                
+                if not small_cats:
+                    ws.write(row, 0, large.name)
+                    ws.write(row, 1, medium.name)
+                    clothing_type = '완제품' if large.name == '완제품' else '맞춤피복'
+                    ws.write(row, 3, clothing_type)
+                    row += 1
+                    continue
+                
+                for small in small_cats:
+                    ws.write(row, 0, large.name)
+                    ws.write(row, 1, medium.name)
+                    ws.write(row, 2, small.name)
+                    clothing_type = '완제품' if large.name == '완제품' else '맞춤피복'
+                    ws.write(row, 3, clothing_type)
+                    row += 1
+        
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        return StreamingResponse(
+            output,
+            media_type='application/vnd.ms-excel',
+            headers={'Content-Disposition': 'attachment; filename="cloth_category.xls"'}
+        )
+
+    def import_from_excel(self, file) -> dict:
+        import xlrd
+        
+        wb = xlrd.open_workbook(file_contents=file.read())
+        ws = wb.sheet_by_index(0)
+        
+        created = 0
+        errors = []
+        
+        large_cache = {}
+        medium_cache = {}
+        
+        for row_idx in range(1, ws.nrows):
+            try:
+                large_name = str(ws.cell_value(row_idx, 0)).strip()
+                medium_name = str(ws.cell_value(row_idx, 1)).strip()
+                small_name = str(ws.cell_value(row_idx, 2)).strip()
+                clothing_type_str = str(ws.cell_value(row_idx, 3)).strip()
+                
+                if not large_name:
+                    continue
+                
+                clothing_type = ClothingType.CUSTOM if '맞춤' in clothing_type_str else ClothingType.READY_MADE
+                
+                if large_name not in large_cache:
+                    large = self.db.query(Category).filter(
+                        Category.name == large_name, Category.level == CategoryLevel.LARGE
+                    ).first()
+                    if not large:
+                        large = Category(name=large_name, level=CategoryLevel.LARGE, sort_order=len(large_cache))
+                        self.db.add(large)
+                        self.db.flush()
+                    large_cache[large_name] = large.id
+                
+                if medium_name:
+                    medium_key = f"{large_name}_{medium_name}"
+                    if medium_key not in medium_cache:
+                        medium = self.db.query(Category).filter(
+                            Category.name == medium_name,
+                            Category.parent_id == large_cache[large_name]
+                        ).first()
+                        if not medium:
+                            medium = Category(
+                                name=medium_name,
+                                level=CategoryLevel.MEDIUM,
+                                parent_id=large_cache[large_name],
+                                sort_order=len([k for k in medium_cache if k.startswith(large_name)])
+                            )
+                            self.db.add(medium)
+                            self.db.flush()
+                        medium_cache[medium_key] = medium.id
+                
+                if small_name and medium_name:
+                    existing = self.db.query(Category).filter(
+                        Category.name == small_name,
+                        Category.parent_id == medium_cache[medium_key]
+                    ).first()
+                    if not existing:
+                        small = Category(
+                            name=small_name,
+                            level=CategoryLevel.SMALL,
+                            parent_id=medium_cache[medium_key],
+                            sort_order=0
+                        )
+                        self.db.add(small)
+                        created += 1
+                        
+            except Exception as e:
+                errors.append(f"행 {row_idx + 1}: {str(e)}")
+        
+        self.db.commit()
+        return {'created': created, 'errors': errors}
+
 
 class ClothingService:
     def __init__(self, db: Session):
@@ -161,9 +295,23 @@ class ClothingService:
             category_id=data.category_id,
             clothing_type=data.clothing_type,
             image_url=data.image_url,
+            thumbnail_url=data.thumbnail_url if hasattr(data, 'thumbnail_url') else None,
             description=data.description,
         )
         self.db.add(item)
+        self.db.flush()  # ID 생성을 위해 flush
+        
+        # 맞춤피복인 경우 자동으로 "맞춤" 규격 생성
+        if data.clothing_type == ClothingType.CUSTOM:
+            default_spec = ClothingSpec(
+                item_id=item.id,
+                spec_code=f"CUSTOM-{item.id}",
+                size="맞춤",
+                price=0,  # 기본 가격 0, 추후 수정 필요
+                is_active=True,
+            )
+            self.db.add(default_spec)
+        
         self.db.commit()
         self.db.refresh(item)
         return item

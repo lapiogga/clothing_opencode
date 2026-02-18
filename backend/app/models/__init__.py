@@ -15,6 +15,7 @@ from app.models.order import (
 )
 from app.models.tailor import TailorCompany, TailorVoucher, VoucherStatus
 from app.models.point import PointGrant, PointTransaction, PointType, TransactionType
+from app.models.menu import Menu, MenuPermission
 
 __all__ = [
     "TimestampMixin",
@@ -50,4 +51,6 @@ __all__ = [
     "PointTransaction",
     "PointType",
     "TransactionType",
+    "Menu",
+    "MenuPermission",
 ]

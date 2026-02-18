@@ -1,195 +1,216 @@
 <template>
   <div class="shop">
-    <div class="shop-header">
-      <div class="tabs">
-        <button :class="['tab', { active: activeType === 'ready_made' }]" @click="activeType = 'ready_made'; selectedCategory = null">
-          완제품
-        </button>
-        <button :class="['tab', { active: activeType === 'custom' }]" @click="activeType = 'custom'; selectedCategory = null">
-          맞춤피복
-        </button>
-      </div>
-      <div class="user-points">
-        보유 포인트: <strong>{{ availablePoint?.toLocaleString() }}P</strong>
+    <div class="page-header">
+      <h1>피복 쇼핑</h1>
+      <div class="user-info">
+        <span class="points">보유 포인트: <strong>{{ authStore.user?.current_point?.toLocaleString() }}P</strong></span>
       </div>
     </div>
 
-    <div class="sales-office-section" v-if="!selectedOffice">
-      <div class="office-header">
-        <h2>피복판매소 선택</h2>
-        <p>구매하실 피복판매소를 선택해주세요.</p>
-      </div>
-      <div class="office-grid">
-        <div
-          v-for="office in salesOffices"
-          :key="office.id"
-          class="office-card"
-          @click="selectOffice(office)"
-        >
-          <div class="office-name">{{ office.name }}</div>
-          <div class="office-address">{{ office.address }}</div>
-          <div class="office-phone">{{ office.phone }}</div>
-        </div>
-      </div>
+    <!-- 판매소 선택 -->
+    <div class="sales-office-select">
+      <label>판매소 선택:</label>
+      <select v-model="selectedSalesOfficeId" @change="fetchProducts">
+        <option :value="null">판매소를 선택하세요</option>
+        <option v-for="office in salesOffices" :key="office.id" :value="office.id">
+          {{ office.name }}
+        </option>
+      </select>
     </div>
 
-    <div v-else class="shop-content">
-      <div class="selected-office">
-        <span class="office-label">선택된 판매소:</span>
-        <span class="office-name">{{ selectedOffice.name }}</span>
-        <button class="btn-change" @click="changeOffice">변경</button>
-      </div>
+    <!-- 타입 필터 -->
+    <div class="type-filter">
+      <button :class="['filter-btn', { active: typeFilter === 'all' }]" @click="typeFilter = 'all'">전체</button>
+      <button :class="['filter-btn', { active: typeFilter === 'ready_made' }]" @click="typeFilter = 'ready_made'">완제품</button>
+      <button :class="['filter-btn', { active: typeFilter === 'custom' }]" @click="typeFilter = 'custom'">맞춤피복</button>
+    </div>
 
-      <div class="filter-bar">
-        <div class="categories">
-          <button
-            :class="['cat-btn', { active: selectedCategory === null }]"
-            @click="selectedCategory = null"
-          >
-            전체
-          </button>
-          <button
-            v-for="cat in filteredCategories"
-            :key="cat.id"
-            :class="['cat-btn', { active: selectedCategory === cat.id }]"
-            @click="selectedCategory = cat.id"
-          >
-            {{ cat.name }}
-          </button>
+    <div v-if="loading" class="loading">상품을 불러오는 중...</div>
+
+    <div v-else-if="!selectedSalesOfficeId && typeFilter !== 'custom'" class="empty-state">
+      <p>판매소를 선택하면 구매 가능한 상품이 표시됩니다.</p>
+      <p class="hint">맞춤피복은 판매소 선택 없이도 조회 가능합니다.</p>
+    </div>
+
+    <div v-else class="product-grid">
+      <div 
+        v-for="product in filteredProducts" 
+        :key="product.item_id" 
+        class="product-card"
+        @click="openProductModal(product)"
+      >
+        <div class="product-image">
+          <img v-if="product.thumbnail_url || product.image_url" :src="product.thumbnail_url || product.image_url" />
+          <span v-else class="no-image">📷</span>
         </div>
-        <div class="search">
-          <input v-model="searchQuery" type="text" placeholder="상품 검색..." />
-        </div>
-      </div>
-
-      <div v-if="loading" class="loading">상품을 불러오는 중...</div>
-
-      <div v-else-if="filteredProducts.length === 0" class="empty-state">
-        재고가 있는 상품이 없습니다.
-      </div>
-
-      <div v-else class="product-grid">
-        <div
-          v-for="product in filteredProducts"
-          :key="`${product.item_id}-${product.spec_id}`"
-          class="product-card"
-          @click="viewProduct(product)"
-        >
-          <div class="product-image">
-            <div v-if="!product.image_url" class="placeholder">📷</div>
-            <img v-else :src="product.image_url" />
+        <div class="product-info">
+          <div class="product-type-badge" :class="product.clothing_type">
+            {{ product.clothing_type === 'ready_made' ? '완제품' : '맞춤피복' }}
           </div>
-          <div class="product-info">
-            <div class="product-category">{{ product.category_name }}</div>
-            <div class="product-name">
-              {{ product.item_name }}
-              <span class="product-spec" v-if="product.spec_size">[{{ product.spec_size }}]</span>
-            </div>
+          <div class="product-name">{{ product.item_name }}</div>
+          <div class="product-category">{{ product.category_name }}</div>
+          <div v-if="product.clothing_type === 'ready_made'" class="product-stock">
+            재고: {{ product.total_stock }}개
           </div>
-          <div class="product-right">
-            <div class="product-price">{{ product.spec_price?.toLocaleString() }}P</div>
-            <div class="product-stock" :class="{ 'low-stock': product.available_quantity <= 5 }">
-              재고 {{ product.available_quantity }}
-            </div>
+          <div v-else class="product-custom-hint">
+            체척권 발행
           </div>
         </div>
       </div>
 
-      <Pagination
-        :current-page="currentPage"
-        :total-pages="totalPages"
-        :total-items="totalItems"
-        @page-change="handlePageChange"
-      />
+      <div v-if="filteredProducts.length === 0" class="no-products">
+        표시할 상품이 없습니다.
+      </div>
     </div>
 
-    <div v-if="showDetail && selectedProduct" class="modal-overlay" @click.self="closeDetail">
-      <div class="modal-content modal-large">
-        <button class="close-btn" @click="closeDetail">&times;</button>
+    <!-- 완제품 주문 모달 -->
+    <div v-if="showReadyMadeModal" class="modal-overlay" @click.self="closeModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>{{ selectedProduct?.item_name }}</h3>
+          <button class="close-btn" @click="closeModal">×</button>
+        </div>
         
-        <div class="product-detail">
-          <div class="detail-image">
-            <div v-if="!selectedProduct.image_url" class="placeholder">📷</div>
-            <img v-else :src="selectedProduct.image_url" />
+        <div class="modal-body">
+          <div class="form-group">
+            <label>규격 선택</label>
+            <select v-model="orderForm.spec_id" @change="updateSpecInfo">
+              <option :value="null">규격을 선택하세요</option>
+              <option v-for="spec in availableSpecs" :key="spec.spec_id" :value="spec.spec_id">
+                {{ spec.spec_size }} - {{ spec.spec_price?.toLocaleString() }}P (재고: {{ spec.available_quantity }}개)
+              </option>
+            </select>
           </div>
 
-          <div class="detail-info">
-            <div class="category-tag">{{ selectedProduct.category_name }}</div>
-            <h2>{{ selectedProduct.item_name }}</h2>
-            <p class="spec-info" v-if="selectedProduct.spec_size">사이즈: {{ selectedProduct.spec_size }}</p>
-            <p class="description">{{ selectedProduct.description || '설명 없음' }}</p>
-
-            <div class="price-section">
-              <div class="point-price">{{ selectedProduct.spec_price?.toLocaleString() }}P</div>
+          <div class="form-group">
+            <label>수량</label>
+            <div class="quantity-input">
+              <button @click="orderForm.quantity = Math.max(1, orderForm.quantity - 1)">-</button>
+              <input type="number" v-model.number="orderForm.quantity" min="1" :max="maxQuantity" />
+              <button @click="orderForm.quantity = Math.min(maxQuantity, orderForm.quantity + 1)">+</button>
             </div>
+            <span class="max-hint">최대 {{ maxQuantity }}개</span>
+          </div>
 
-            <div class="stock-info">
-              <span class="stock-label">가용 재고:</span>
-              <span class="stock-value">{{ selectedProduct.available_quantity }}개</span>
-              <span class="stock-note">(예약: {{ selectedProduct.reserved_quantity }}개)</span>
-            </div>
-
-            <div class="options-section">
-              <div class="option-group">
-                <label>수량</label>
-                <div class="quantity-selector">
-                  <button @click="quantity = Math.max(1, quantity - 1)">-</button>
-                  <span>{{ quantity }}</span>
-                  <button @click="quantity = Math.min(selectedProduct.available_quantity, quantity + 1)">+</button>
-                </div>
-              </div>
-
-              <div class="option-group">
-                <label>배송 방법 <span class="required">*</span></label>
-                <div class="delivery-options">
-                  <label class="delivery-radio" :class="{ active: deliveryType === 'parcel' }">
-                    <input type="radio" v-model="deliveryType" value="parcel" />
-                    <span>택배 배송</span>
-                  </label>
-                  <label class="delivery-radio" :class="{ active: deliveryType === 'direct' }">
-                    <input type="radio" v-model="deliveryType" value="direct" />
-                    <span>직접 수령</span>
-                  </label>
-                </div>
-              </div>
-
-              <div v-if="deliveryType === 'parcel'" class="option-group">
-                <label>받는 분 <span class="required">*</span></label>
-                <input v-model="recipientName" type="text" placeholder="이름 입력" />
-              </div>
-
-              <div v-if="deliveryType === 'parcel'" class="option-group">
-                <label>연락처 <span class="required">*</span></label>
-                <input v-model="recipientPhone" type="tel" placeholder="010-0000-0000" />
-              </div>
-
-              <div v-if="deliveryType === 'parcel'" class="option-group">
-                <label>배송 주소 <span class="required">*</span></label>
-                <input v-model="shippingAddress" type="text" placeholder="주소 입력" />
-              </div>
-
-              <div v-if="deliveryType === 'direct'" class="option-group">
-                <label>수령 장소 <span class="required">*</span></label>
-                <select v-model="deliveryLocationId">
-                  <option value="">선택하세요</option>
-                  <option v-for="loc in deliveryLocations" :key="loc.id" :value="loc.id">
-                    {{ loc.name }} ({{ loc.address }})
-                  </option>
-                </select>
-              </div>
-            </div>
-
-            <div class="total-section">
-              <span>합계:</span>
-              <strong>{{ (selectedProduct.spec_price * quantity)?.toLocaleString() }}P</strong>
-            </div>
-
-            <div class="action-buttons">
-              <button class="btn btn-primary btn-lg" @click="buyNow" :disabled="submitting">
-                {{ submitting ? '처리 중...' : '바로 구매' }}
-              </button>
+          <div class="form-group">
+            <label>배송 방법</label>
+            <div class="delivery-options">
+              <label class="radio-label">
+                <input type="radio" v-model="orderForm.delivery_type" value="parcel" />
+                택배 배송
+              </label>
+              <label class="radio-label">
+                <input type="radio" v-model="orderForm.delivery_type" value="direct" />
+                직접 수령
+              </label>
             </div>
           </div>
+
+          <template v-if="orderForm.delivery_type === 'parcel'">
+            <div class="form-group">
+              <label>수령인</label>
+              <input type="text" v-model="orderForm.recipient_name" />
+            </div>
+            <div class="form-group">
+              <label>연락처</label>
+              <input type="tel" v-model="orderForm.recipient_phone" />
+            </div>
+            <div class="form-group">
+              <label>배송지 주소</label>
+              <input type="text" v-model="orderForm.shipping_address" />
+            </div>
+          </template>
+
+          <div class="order-summary">
+            <div class="summary-row">
+              <span>상품 금액</span>
+              <span>{{ (selectedSpecPrice * orderForm.quantity)?.toLocaleString() }}P</span>
+            </div>
+            <div class="summary-row total">
+              <span>합계</span>
+              <span>{{ orderTotal?.toLocaleString() }}P</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="closeModal">취소</button>
+          <button 
+            class="btn btn-primary" 
+            @click="submitOrder"
+            :disabled="!canSubmitOrder || submitting"
+          >
+            {{ submitting ? '주문 처리 중...' : '주문하기' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 맞춤피복 체척권 발행 모달 -->
+    <div v-if="showCustomModal" class="modal-overlay" @click.self="closeModal">
+      <div class="modal-content modal-small">
+        <div class="modal-header">
+          <h3>{{ selectedProduct?.item_name }} (맞춤피복)</h3>
+          <button class="close-btn" @click="closeModal">×</button>
+        </div>
+        
+        <div class="modal-body">
+          <div class="custom-info">
+            <p class="info-text">맞춤피복은 체척권 발행 후 체척업체에서 맞춤 제작합니다.</p>
+            <p class="info-text">구매 즉시 체척권이 발행됩니다.</p>
+          </div>
+
+          <div class="form-group">
+            <label>수량</label>
+            <div class="quantity-input">
+              <button @click="customForm.amount = Math.max(1, customForm.amount - 1)">-</button>
+              <input type="number" v-model.number="customForm.amount" min="1" />
+              <button @click="customForm.amount = customForm.amount + 1">+</button>
+            </div>
+          </div>
+
+          <div class="voucher-preview">
+            <span>체척권 발행 수량:</span>
+            <strong>{{ customForm.amount }}장</strong>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="closeModal">취소</button>
+          <button 
+            class="btn btn-primary" 
+            @click="issueVoucher"
+            :disabled="submitting"
+          >
+            {{ submitting ? '발행 중...' : '바로구매' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 체척권 발행 완료 모달 -->
+    <div v-if="showVoucherResult" class="modal-overlay" @click.self="closeVoucherResult">
+      <div class="modal-content modal-small">
+        <div class="modal-header success">
+          <h3>체척권 발행 완료</h3>
+        </div>
+        
+        <div class="modal-body">
+          <div class="voucher-result">
+            <div class="voucher-icon">✓</div>
+            <div class="voucher-number">
+              <label>체척권 번호</label>
+              <strong>{{ issuedVoucher?.voucher_number }}</strong>
+            </div>
+            <div class="voucher-info">
+              <p>체척권이 발행되었습니다.</p>
+              <p>체척업체에서 체척권 번호를 제시하여 맞춤 제작을 받으시기 바랍니다.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-primary btn-block" @click="closeVoucherResult">확인</button>
         </div>
       </div>
     </div>
@@ -198,253 +219,220 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import api from '@/api'
-import Pagination from '@/components/common/Pagination.vue'
+import { useAuthStore } from '@/stores/auth'
 
-const authStore = useAuthStore()
 const router = useRouter()
+const authStore = useAuthStore()
 
-const salesOffices = ref([])
-const selectedOffice = ref(null)
-const inventory = ref([])
-const categories = ref([])
+// State
 const loading = ref(false)
 const submitting = ref(false)
+const salesOffices = ref([])
+const selectedSalesOfficeId = ref(null)
+const typeFilter = ref('all')
+const readyMadeProducts = ref([])
+const customProducts = ref([])
+const availableSpecs = ref([])
 
-const activeType = ref('ready_made')
-const selectedCategory = ref(null)
-const searchQuery = ref('')
-const currentPage = ref(1)
-const pageSize = 12
-const totalItems = ref(0)
-
-const showDetail = ref(false)
+// Modal state
+const showReadyMadeModal = ref(false)
+const showCustomModal = ref(false)
+const showVoucherResult = ref(false)
 const selectedProduct = ref(null)
-const quantity = ref(1)
-const deliveryType = ref('parcel')
-const recipientName = ref('')
-const recipientPhone = ref('')
-const shippingAddress = ref('')
-const deliveryLocationId = ref('')
-const deliveryLocations = ref([])
 
-const availablePoint = computed(() => {
-  const user = authStore.user
-  return (user?.current_point || 0) - (user?.reserved_point || 0)
+// Order form for ready-made
+const orderForm = ref({
+  spec_id: null,
+  quantity: 1,
+  delivery_type: 'parcel',
+  recipient_name: '',
+  recipient_phone: '',
+  shipping_address: '',
 })
 
-const filteredCategories = computed(() => {
-  return categories.value.filter(cat => {
-    if (activeType.value === 'ready_made') {
-      return cat.type !== 'custom'
-    }
-    return cat.type !== 'ready_made'
-  })
+// Custom clothing form
+const customForm = ref({
+  amount: 1,
 })
 
+// Issued voucher result
+const issuedVoucher = ref(null)
+
+// Computed
 const filteredProducts = computed(() => {
-  let products = inventory.value.filter(p => {
-    if (activeType.value === 'ready_made') {
-      return p.clothing_type === 'ready_made'
+  const allProducts = [...readyMadeProducts.value, ...customProducts.value]
+  
+  // Group by item_id
+  const groupedMap = new Map()
+  allProducts.forEach(item => {
+    if (!groupedMap.has(item.item_id)) {
+      groupedMap.set(item.item_id, {
+        item_id: item.item_id,
+        item_name: item.item_name,
+        category_id: item.category_id,
+        category_name: item.category_name,
+        clothing_type: item.clothing_type,
+        description: item.description,
+        image_url: item.image_url,
+        thumbnail_url: item.thumbnail_url,
+        specs: [],
+        total_stock: 0,
+      })
     }
-    return p.clothing_type === 'custom'
+    const product = groupedMap.get(item.item_id)
+    product.specs.push(item)
+    if (item.clothing_type === 'ready_made') {
+      product.total_stock += item.available_quantity || 0
+    }
   })
+
+  let products = Array.from(groupedMap.values())
   
-  if (selectedCategory.value) {
-    products = products.filter(p => p.category_id === selectedCategory.value)
-  }
-  
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    products = products.filter(p =>
-      p.item_name?.toLowerCase().includes(query)
-    )
+  if (typeFilter.value !== 'all') {
+    products = products.filter(p => p.clothing_type === typeFilter.value)
   }
   
   return products
 })
 
-const totalPages = computed(() => Math.ceil(totalItems.value / pageSize))
+const selectedSpecPrice = computed(() => {
+  const spec = availableSpecs.value.find(s => s.spec_id === orderForm.value.spec_id)
+  return spec?.spec_price || 0
+})
 
+const maxQuantity = computed(() => {
+  const spec = availableSpecs.value.find(s => s.spec_id === orderForm.value.spec_id)
+  return spec?.available_quantity || 1
+})
+
+const orderTotal = computed(() => {
+  return selectedSpecPrice.value * orderForm.value.quantity
+})
+
+const canSubmitOrder = computed(() => {
+  if (!orderForm.value.spec_id || orderForm.value.quantity < 1) return false
+  if (orderForm.value.quantity > maxQuantity.value) return false
+  if (orderTotal.value > (authStore.user?.current_point || 0)) return false
+  if (orderForm.value.delivery_type === 'parcel') {
+    if (!orderForm.value.recipient_name || !orderForm.value.recipient_phone || !orderForm.value.shipping_address) {
+      return false
+    }
+  }
+  return true
+})
+
+// Methods
 onMounted(async () => {
-  await fetchSalesOffices()
-  await fetchCategories()
+  await Promise.all([
+    fetchSalesOffices(),
+    fetchCustomProducts(),
+  ])
+  
+  // Initialize form with user data
+  if (authStore.user) {
+    orderForm.value.recipient_name = authStore.user.name || ''
+    orderForm.value.recipient_phone = authStore.user.phone || ''
+    orderForm.value.shipping_address = authStore.user.address || ''
+  }
 })
 
 async function fetchSalesOffices() {
   try {
-    const response = await api.get('/sales-offices')
-    salesOffices.value = response.data || []
+    const res = await api.get('/sales-offices', { params: { is_active: true } })
+    salesOffices.value = res.data
   } catch (error) {
     console.error('Failed to fetch sales offices:', error)
   }
 }
 
-async function fetchCategories() {
-  try {
-    const response = await api.get('/categories/tree')
-    const flatList = []
-    flattenCategories(response.data, flatList)
-    categories.value = flatList
-  } catch (error) {
-    console.error('Failed to fetch categories:', error)
+async function fetchProducts() {
+  if (!selectedSalesOfficeId.value) {
+    readyMadeProducts.value = []
+    return
   }
-}
-
-function flattenCategories(cats, result) {
-  for (const cat of cats) {
-    if (cat.level === 'large' || cat.level === 'medium') {
-      result.push({
-        id: cat.id,
-        name: cat.name,
-        level: cat.level,
-        type: cat.name.includes('맞춤') ? 'custom' : 'ready_made'
-      })
-    }
-    if (cat.children && cat.children.length > 0) {
-      flattenCategories(cat.children, result)
-    }
-  }
-}
-
-async function selectOffice(office) {
-  selectedOffice.value = office
-  await fetchInventory()
-  await fetchDeliveryLocations()
-}
-
-function changeOffice() {
-  selectedOffice.value = null
-  inventory.value = []
-  deliveryLocations.value = []
-}
-
-async function fetchDeliveryLocations() {
-  if (!selectedOffice.value) return
-  try {
-    const response = await api.get('/delivery-locations', {
-      params: { sales_office_id: selectedOffice.value.id }
-    })
-    deliveryLocations.value = response.data || []
-  } catch (error) {
-    console.error('Failed to fetch delivery locations:', error)
-  }
-}
-
-async function fetchInventory() {
-  if (!selectedOffice.value) return
   
   loading.value = true
   try {
-    const response = await api.get('/inventory/available', {
+    const res = await api.get('/inventory/available', {
       params: {
-        sales_office_id: selectedOffice.value.id,
-        page: currentPage.value,
-        page_size: 100
+        sales_office_id: selectedSalesOfficeId.value,
+        page_size: 100,
       }
     })
-    
-    const items = response.data.items || []
-    totalItems.value = response.data.total || 0
-    
-    inventory.value = items.filter(item => item.available_quantity > 0)
+    readyMadeProducts.value = res.data.items || []
   } catch (error) {
-    console.error('Failed to fetch inventory:', error)
-    alert('재고 조회에 실패했습니다.')
+    console.error('Failed to fetch products:', error)
   } finally {
     loading.value = false
   }
 }
 
-watch([activeType, selectedCategory, searchQuery], () => {
-  currentPage.value = 1
-})
-
-function handlePageChange(page) {
-  currentPage.value = page
+async function fetchCustomProducts() {
+  try {
+    const res = await api.get('/clothings/custom/available')
+    customProducts.value = res.data.items || []
+  } catch (error) {
+    console.error('Failed to fetch custom products:', error)
+  }
 }
 
-function viewProduct(product) {
+function openProductModal(product) {
   selectedProduct.value = product
-  quantity.value = 1
-  deliveryType.value = 'parcel'
-  recipientName.value = ''
-  recipientPhone.value = ''
-  shippingAddress.value = ''
-  deliveryLocationId.value = ''
-  showDetail.value = true
+  
+  if (product.clothing_type === 'custom') {
+    // 맞춤피복: 간단한 모달
+    customForm.value.amount = 1
+    showCustomModal.value = true
+  } else {
+    // 완제품: 규격 선택 모달
+    availableSpecs.value = product.specs.filter(s => s.available_quantity > 0)
+    orderForm.value.spec_id = null
+    orderForm.value.quantity = 1
+    orderForm.value.delivery_type = 'parcel'
+    showReadyMadeModal.value = true
+  }
 }
 
-function closeDetail() {
-  showDetail.value = false
+function closeModal() {
+  showReadyMadeModal.value = false
+  showCustomModal.value = false
   selectedProduct.value = null
 }
 
-async function buyNow() {
-  if (!selectedProduct.value) return
-  
-  const totalPoints = selectedProduct.value.spec_price * quantity.value
-  
-  if (totalPoints > availablePoint.value) {
-    alert('포인트가 부족합니다.')
-    return
-  }
-  
-  if (quantity.value > selectedProduct.value.available_quantity) {
-    alert('재고가 부족합니다.')
-    return
-  }
-  
-  if (deliveryType.value === 'parcel') {
-    if (!recipientName.value.trim()) {
-      alert('받는 분 이름을 입력해주세요.')
-      return
-    }
-    if (!recipientPhone.value.trim()) {
-      alert('연락처를 입력해주세요.')
-      return
-    }
-    if (!shippingAddress.value.trim()) {
-      alert('배송 주소를 입력해주세요.')
-      return
-    }
-  } else if (deliveryType.value === 'direct') {
-    if (!deliveryLocationId.value) {
-      alert('수령 장소를 선택해주세요.')
-      return
-    }
-  }
+function updateSpecInfo() {
+  // Reset quantity when spec changes
+  orderForm.value.quantity = 1
+}
+
+async function submitOrder() {
+  if (!canSubmitOrder.value) return
   
   submitting.value = true
   try {
     const orderData = {
-      sales_office_id: selectedOffice.value.id,
+      sales_office_id: selectedSalesOfficeId.value,
       order_type: 'online',
-      delivery_type: deliveryType.value,
       items: [{
         item_id: selectedProduct.value.item_id,
-        spec_id: selectedProduct.value.spec_id,
-        quantity: quantity.value,
-        payment_method: 'point'
-      }]
-    }
-    
-    if (deliveryType.value === 'parcel') {
-      orderData.recipient_name = recipientName.value
-      orderData.recipient_phone = recipientPhone.value
-      orderData.shipping_address = shippingAddress.value
-    } else {
-      orderData.delivery_location_id = parseInt(deliveryLocationId.value)
+        spec_id: orderForm.value.spec_id,
+        quantity: orderForm.value.quantity,
+      }],
+      delivery_type: orderForm.value.delivery_type,
+      recipient_name: orderForm.value.recipient_name,
+      recipient_phone: orderForm.value.recipient_phone,
+      shipping_address: orderForm.value.shipping_address,
     }
     
     await api.post('/orders', orderData)
-    
     alert('주문이 완료되었습니다.')
-    closeDetail()
+    closeModal()
+    
+    // Refresh user data for updated points
     await authStore.fetchUser()
-    await fetchInventory()
+    
+    // Redirect to orders
     router.push('/user/orders')
   } catch (error) {
     alert(error.response?.data?.detail || '주문에 실패했습니다.')
@@ -452,235 +440,165 @@ async function buyNow() {
     submitting.value = false
   }
 }
+
+async function issueVoucher() {
+  submitting.value = true
+  try {
+    const res = await api.post('/tailor-vouchers/issue-direct', {
+      user_id: authStore.user.id,
+      item_id: selectedProduct.value.item_id,
+      amount: customForm.value.amount,
+      sales_office_id: selectedSalesOfficeId.value,
+      notes: '맞춤피복 쇼핑에서 발행',
+    })
+    
+    issuedVoucher.value = res.data
+    closeModal()
+    showVoucherResult.value = true
+    
+    // Refresh user data
+    await authStore.fetchUser()
+  } catch (error) {
+    alert(error.response?.data?.detail || '체척권 발행에 실패했습니다.')
+  } finally {
+    submitting.value = false
+  }
+}
+
+function closeVoucherResult() {
+  showVoucherResult.value = false
+  issuedVoucher.value = null
+}
 </script>
 
 <style scoped>
 .shop {
-  padding: 16px;
-  max-width: 800px;
+  padding: 20px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
-.shop-header {
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
-.tabs {
-  display: flex;
-  gap: 6px;
-}
-
-.tab {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 6px;
-  background: #f3f4f6;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.tab.active {
-  background: #3b82f6;
-  color: white;
-}
-
-.user-points {
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.user-points strong {
-  color: #3b82f6;
-  font-size: 14px;
-}
-
-.sales-office-section {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-}
-
-.office-header {
-  text-align: center;
-  margin-bottom: 16px;
-}
-
-.office-header h2 {
-  font-size: 18px;
-  margin-bottom: 4px;
-}
-
-.office-header p {
-  color: #6b7280;
-  font-size: 13px;
-}
-
-.office-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
-}
-
-.office-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 14px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.office-card:hover {
-  border-color: #3b82f6;
-  background: #f8faff;
-}
-
-.office-card .office-name {
-  font-size: 14px;
+.page-header h1 {
+  font-size: 24px;
   font-weight: 600;
-  margin-bottom: 4px;
 }
 
-.office-card .office-address {
+.user-info {
   color: #6b7280;
-  font-size: 12px;
-  margin-bottom: 2px;
 }
 
-.office-card .office-phone {
-  color: #9ca3af;
-  font-size: 11px;
+.user-info .points strong {
+  color: #3b82f6;
+  font-size: 18px;
 }
 
-.shop-content {
-  background: white;
-  border-radius: 12px;
-  padding: 16px;
-}
-
-.selected-office {
+.sales-office-select {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: #f0f7ff;
-  border-radius: 6px;
-  margin-bottom: 12px;
-  font-size: 13px;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px;
+  background: white;
+  border-radius: 8px;
 }
 
-.office-label {
-  color: #6b7280;
-}
-
-.selected-office .office-name {
+.sales-office-select label {
   font-weight: 500;
+  color: #374151;
+}
+
+.sales-office-select select {
+  flex: 1;
+  max-width: 300px;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.type-filter {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.filter-btn {
+  padding: 8px 20px;
+  border: 1px solid #d1d5db;
+  border-radius: 20px;
+  background: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.filter-btn:hover {
+  border-color: #3b82f6;
   color: #3b82f6;
 }
 
-.btn-change {
-  margin-left: auto;
-  padding: 2px 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  background: white;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.btn-change:hover {
-  background: #f3f4f6;
-}
-
-.filter-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  gap: 12px;
-}
-
-.categories {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.cat-btn {
-  padding: 5px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 16px;
-  background: white;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.cat-btn.active {
+.filter-btn.active {
   background: #3b82f6;
-  color: white;
   border-color: #3b82f6;
-}
-
-.search input {
-  padding: 8px 14px;
-  border: 1px solid #d1d5db;
-  border-radius: 16px;
-  width: 200px;
-  font-size: 13px;
+  color: white;
 }
 
 .loading {
   text-align: center;
-  padding: 40px;
+  padding: 60px 20px;
   color: #6b7280;
 }
 
 .empty-state {
   text-align: center;
-  padding: 40px;
+  padding: 60px 20px;
+  background: white;
+  border-radius: 8px;
+}
+
+.empty-state p {
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.empty-state .hint {
+  font-size: 13px;
   color: #9ca3af;
 }
 
 .product-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
 }
 
 .product-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.15s;
   background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid #e5e7eb;
 }
 
 .product-card:hover {
-  border-color: #3b82f6;
-  background: #fafafa;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .product-image {
-  width: 56px;
-  height: 56px;
-  min-width: 56px;
+  height: 140px;
   background: #f3f4f6;
-  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.product-image .placeholder {
-  font-size: 24px;
 }
 
 .product-image img {
@@ -689,55 +607,65 @@ async function buyNow() {
   object-fit: contain;
 }
 
-.product-info {
-  flex: 1;
-  min-width: 0;
+.no-image {
+  font-size: 48px;
+  color: #9ca3af;
 }
 
-.product-category {
+.product-info {
+  padding: 12px;
+}
+
+.product-type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
   font-size: 11px;
-  color: #9ca3af;
-  margin-bottom: 2px;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.product-type-badge.ready_made {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.product-type-badge.custom {
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .product-name {
-  font-weight: 500;
+  font-weight: 600;
   font-size: 14px;
-  margin-bottom: 2px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  margin-bottom: 4px;
+  color: #1f2937;
 }
 
-.product-spec {
+.product-category {
   font-size: 12px;
   color: #6b7280;
-}
-
-.product-price {
-  font-weight: 600;
-  color: #3b82f6;
-  font-size: 15px;
+  margin-bottom: 6px;
 }
 
 .product-stock {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: #f3f4f6;
+  font-size: 12px;
+  color: #16a34a;
+}
+
+.product-custom-hint {
+  font-size: 12px;
+  color: #92400e;
+}
+
+.no-products {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px;
   color: #6b7280;
 }
 
-.product-stock.low-stock {
-  background: #fef2f2;
-  color: #dc2626;
-}
-
-.product-right {
-  text-align: right;
-  padding-left: 12px;
-}
-
+/* Modal styles */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -749,158 +677,97 @@ async function buyNow() {
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 20px;
 }
 
 .modal-content {
   background: white;
   border-radius: 12px;
-  position: relative;
-  max-height: 85vh;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
   overflow-y: auto;
 }
 
-.modal-large {
-  width: 100%;
-  max-width: 520px;
+.modal-small {
+  max-width: 400px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.modal-header.success {
+  background: #dcfce7;
+  border-radius: 12px 12px 0 0;
+}
+
+.modal-header.success h3 {
+  color: #166534;
 }
 
 .close-btn {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  background: white;
+  background: none;
   border: none;
-  font-size: 22px;
+  font-size: 24px;
   cursor: pointer;
-  z-index: 1;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  color: #6b7280;
 }
 
-.product-detail {
-  display: flex;
-  flex-direction: column;
+.modal-body {
   padding: 20px;
 }
 
-.detail-image {
-  width: 100%;
-  height: 180px;
-  background: #f3f4f6;
-  border-radius: 8px;
+.modal-footer {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.form-group {
   margin-bottom: 16px;
 }
 
-.detail-image img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-.detail-image .placeholder {
-  font-size: 48px;
-}
-
-.detail-info {
-  flex: 1;
-}
-
-.category-tag {
-  display: inline-block;
-  padding: 3px 10px;
-  background: #e0f2fe;
-  color: #0369a1;
-  border-radius: 20px;
-  font-size: 11px;
-  margin-bottom: 8px;
-}
-
-.detail-info h2 {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-
-.spec-info {
-  color: #6b7280;
-  font-size: 13px;
-  margin-bottom: 8px;
-}
-
-.detail-info .description {
-  color: #6b7280;
-  line-height: 1.5;
-  font-size: 13px;
-  margin-bottom: 16px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.price-section {
-  margin-bottom: 12px;
-}
-
-.point-price {
-  font-size: 22px;
-  font-weight: 700;
-  color: #3b82f6;
-}
-
-.stock-info {
-  padding: 10px;
-  background: #f9fafb;
-  border-radius: 6px;
-  margin-bottom: 12px;
-  font-size: 13px;
-}
-
-.stock-label {
-  color: #6b7280;
-}
-
-.stock-value {
-  font-weight: 500;
-  margin: 0 4px;
-}
-
-.stock-note {
-  color: #9ca3af;
-  font-size: 11px;
-}
-
-.options-section {
-  margin-bottom: 12px;
-}
-
-.option-group {
-  margin-bottom: 10px;
-}
-
-.option-group label {
+.form-group label {
   display: block;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
+  color: #374151;
   margin-bottom: 6px;
-  color: #6b7280;
 }
 
-.quantity-selector {
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.quantity-input {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
-.quantity-selector button {
+.quantity-input input {
+  width: 60px;
+  text-align: center;
+}
+
+.quantity-input button {
   width: 32px;
   height: 32px;
   border: 1px solid #d1d5db;
@@ -910,88 +777,156 @@ async function buyNow() {
   font-size: 16px;
 }
 
-.quantity-selector span {
-  font-size: 16px;
-  font-weight: 500;
-  min-width: 32px;
-  text-align: center;
+.max-hint {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+  display: block;
 }
 
 .delivery-options {
   display: flex;
-  gap: 8px;
+  gap: 16px;
 }
 
-.delivery-radio {
-  flex: 1;
+.radio-label {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 10px 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
+  gap: 6px;
   cursor: pointer;
-  transition: all 0.15s;
-  font-size: 13px;
 }
 
-.delivery-radio input {
-  display: none;
+.order-summary {
+  background: #f9fafb;
+  padding: 16px;
+  border-radius: 8px;
+  margin-top: 16px;
 }
 
-.delivery-radio span {
-  font-weight: 500;
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 14px;
 }
 
-.delivery-radio.active {
-  border-color: #3b82f6;
-  background: #eff6ff;
-}
-
-.delivery-radio.active span {
+.summary-row.total {
+  font-weight: 600;
+  font-size: 16px;
   color: #3b82f6;
+  margin-bottom: 0;
+  padding-top: 8px;
+  border-top: 1px dashed #d1d5db;
 }
 
-.option-group input[type="text"],
-.option-group input[type="tel"],
-.option-group select {
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
+.custom-info {
+  background: #fef3c7;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.info-text {
   font-size: 13px;
+  color: #92400e;
+  margin-bottom: 4px;
 }
 
-.option-group input:focus,
-.option-group select:focus {
-  outline: none;
-  border-color: #3b82f6;
-}
-
-.total-section {
+.voucher-preview {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px;
-  background: #f0f7ff;
-  border-radius: 6px;
-  margin-bottom: 12px;
-  font-size: 13px;
-}
-
-.total-section strong {
-  font-size: 18px;
-  color: #3b82f6;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 8px;
-}
-
-.btn-lg {
-  flex: 1;
   padding: 12px 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.voucher-preview strong {
+  color: #3b82f6;
+  font-size: 18px;
+}
+
+/* Voucher result */
+.voucher-result {
+  text-align: center;
+  padding: 20px;
+}
+
+.voucher-icon {
+  width: 60px;
+  height: 60px;
+  background: #dcfce7;
+  color: #16a34a;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  margin: 0 auto 16px;
+}
+
+.voucher-number {
+  margin-bottom: 16px;
+}
+
+.voucher-number label {
+  display: block;
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.voucher-number strong {
+  font-size: 20px;
+  color: #1f2937;
+}
+
+.voucher-info {
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+.voucher-info p {
+  margin-bottom: 4px;
+}
+
+/* Buttons */
+.btn {
+  padding: 10px 20px;
+  border-radius: 6px;
   font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: #3b82f6;
+  color: white;
+  border: none;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.btn-secondary {
+  background: white;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.btn-secondary:hover {
+  background: #f9fafb;
+}
+
+.btn-block {
+  width: 100%;
 }
 </style>

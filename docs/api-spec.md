@@ -701,6 +701,39 @@ GET /api/tailor-vouchers
 }
 ```
 
+### 체척권 직접 발행 (맞춤피복용)
+
+> 맞춤피복 구매 시 주문 없이 체척권만 발행
+
+```
+POST /api/tailor-vouchers/issue-direct
+```
+
+**Request Body:**
+```json
+{
+  "user_id": 10,
+  "item_id": 8,
+  "amount": 1,
+  "sales_office_id": 1,
+  "notes": "맞춤피복 체척권 발행"
+}
+```
+
+**Response:**
+```json
+{
+  "id": 1,
+  "voucher_number": "TV-20250219-ABCD1234",
+  "user_id": 10,
+  "item_id": 8,
+  "amount": 1,
+  "status": "issued",
+  "issued_at": "2025-02-19T10:00:00",
+  "notes": "맞춤피복 체척권 발행"
+}
+```
+
 ### 체척권 등록
 
 ```
@@ -732,6 +765,40 @@ POST /api/tailor-vouchers/{id}/cancel-request
 
 ```
 GET /api/tailor-vouchers/companies
+```
+
+---
+
+## 맞춤피복 API
+
+### 맞춤피복 목록 조회
+
+> 재고 관리 없이 활성화된 맞춤피복 목록만 조회
+
+```
+GET /api/clothings/custom/available
+```
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "item_id": 8,
+      "spec_id": 43,
+      "item_name": "정복상의맞춤",
+      "category_id": 14,
+      "category_name": "정복상의맞춤",
+      "clothing_type": "custom",
+      "description": "정복상의맞춤 - 맞춤 제작",
+      "image_url": null,
+      "thumbnail_url": null,
+      "spec_size": "맞춤",
+      "spec_price": 149000
+    }
+  ],
+  "total": 4
+}
 ```
 
 ---

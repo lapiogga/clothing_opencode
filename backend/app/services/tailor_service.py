@@ -35,6 +35,27 @@ def create_voucher(db: Session, staff_id: int, voucher_data: VoucherCreate) -> T
     return voucher
 
 
+def issue_voucher_direct(db: Session, user_id: int, item_id: int, amount: int, sales_office_id: int = None, notes: str = None) -> TailorVoucher:
+    """
+    맞춤피복 체척권 직접 발행 (주문 없이)
+    - 사용자가 맞춤피복 선택 시 즉시 체척권 발행
+    """
+    voucher_number = generate_voucher_number()
+    
+    voucher = TailorVoucher(
+        voucher_number=voucher_number,
+        user_id=user_id,
+        item_id=item_id,
+        amount=amount,
+        status=VoucherStatus.ISSUED,
+        notes=notes or "맞춤피복 체척권 발행",
+    )
+    db.add(voucher)
+    db.commit()
+    db.refresh(voucher)
+    return voucher
+
+
 def get_vouchers(db: Session, user_id: Optional[int] = None, status: Optional[VoucherStatus] = None, skip: int = 0, limit: int = 20) -> tuple[list, int]:
     query = db.query(TailorVoucher)
     if user_id:

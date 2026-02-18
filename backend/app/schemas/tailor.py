@@ -6,12 +6,48 @@ from pydantic import BaseModel
 from app.models.tailor import VoucherStatus
 
 
+class TailorCompanyBase(BaseModel):
+    name: str
+    code: str
+    business_number: Optional[str] = None
+    address: str
+    phone: Optional[str] = None
+    manager_name: Optional[str] = None
+    manager_phone: Optional[str] = None
+    is_active: bool = True
+
+
+class TailorCompanyCreate(TailorCompanyBase):
+    pass
+
+
+class TailorCompanyUpdate(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    business_number: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    manager_name: Optional[str] = None
+    manager_phone: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
 class VoucherCreate(BaseModel):
     user_id: int
     order_id: int
     order_item_id: int
     item_id: int
     amount: int
+    expires_at: Optional[date] = None
+    notes: Optional[str] = None
+
+
+class VoucherIssueDirect(BaseModel):
+    """맞춤피복 직접 체척권 발행용 (주문 없이)"""
+    user_id: int
+    item_id: int
+    amount: int
+    sales_office_id: int
     expires_at: Optional[date] = None
     notes: Optional[str] = None
 

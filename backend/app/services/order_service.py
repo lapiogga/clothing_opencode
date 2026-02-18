@@ -291,14 +291,37 @@ def update_delivery(db: Session, order_id: int, delivery_data: DeliveryUpdate) -
         elif delivery_data.status == DeliveryStatus.DELIVERED:
             delivery.delivered_at = datetime.utcnow()
             order.status = OrderStatus.DELIVERED
-            if order.reserved_point > 0:
-                _confirm_points(db, order.user_id, order_id, order.reserved_point)
+            # 포인트는 수령 완료 시 확정 차감하므로 여기서는 처리하지 않음
     
     if delivery_data.tracking_number:
         delivery.tracking_number = delivery_data.tracking_number
     
     if delivery_data.delivery_note:
         delivery.delivery_note = delivery_data.delivery_note
+    
+    db.commit()
+    db.refresh(order)
+    return order
+
+
+def receive_order(db: Session, order_id: int, user_id: int) -> Optional[Order]:
+    """
+    주문 수령 완료 처리
+    - 배송 완료(DELIVERED) 상태에서만 수령 완료 가능
+    - 포인트 확정 차감 처리
+    """
+    order = db.query(Order).filter(Order.id == order_id, Order.user_id == user_id).first()
+    if not order:
+        return None
+    
+    if order.status != OrderStatus.DELIVERED:
+        return None
+    
+    # 포인트 확정 차감
+    if order.reserved_point > 0:
+        _confirm_points(db, user_id, order_id, order.reserved_point)
+    
+    order.status = OrderStatus.RECEIVED
     
     db.commit()
     db.refresh(order)

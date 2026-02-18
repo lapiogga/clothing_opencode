@@ -41,6 +41,7 @@ class ClothingBase(BaseModel):
     category_id: int
     clothing_type: ClothingType
     image_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     description: Optional[str] = None
 
 
@@ -53,6 +54,7 @@ class ClothingUpdate(BaseModel):
     category_id: Optional[int] = None
     clothing_type: Optional[ClothingType] = None
     image_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -96,6 +98,7 @@ class ClothingResponse(ClothingBase):
 
 class ClothingDetailResponse(ClothingResponse):
     specs: List[SpecResponse] = []
+    thumbnail_url: Optional[str] = None
 
 
 class ClothingListResponse(BaseModel):

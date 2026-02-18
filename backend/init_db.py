@@ -2,10 +2,22 @@
 from app.database import engine, SessionLocal, Base
 from app.models import *
 from app.utils.auth import get_password_hash
+from app.services.menu_service import MenuService
 
 def init_db():
     Base.metadata.create_all(bind=engine)
     print("테이블 생성 완료")
+    
+    # 기본 메뉴 초기화
+    db = SessionLocal()
+    try:
+        menu_service = MenuService(db)
+        menu_service.initialize_default_menus()
+        print("기본 메뉴 초기화 완료")
+    except Exception as e:
+        print(f"메뉴 초기화 실패: {e}")
+    finally:
+        db.close()
 
 def seed_data():
     db = SessionLocal()

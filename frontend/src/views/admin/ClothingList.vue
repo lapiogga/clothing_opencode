@@ -96,11 +96,23 @@
             <textarea v-model="form.description" rows="3"></textarea>
           </div>
 
-          <div class="form-row">
-            <div class="form-group">
-              <label>이미지 URL</label>
-              <input v-model="form.image_url" type="url" />
+          <div class="form-group">
+            <label>이미지 URL</label>
+            <input v-model="form.image_url" type="url" placeholder="원본 이미지 URL" />
+            <div v-if="form.image_url" class="image-preview">
+              <img :src="form.image_url" alt="이미지 미리보기" />
             </div>
+          </div>
+
+          <div class="form-group">
+            <label>썸네일 URL</label>
+            <input v-model="form.thumbnail_url" type="url" placeholder="썸네일 이미지 URL (목록용)" />
+            <div v-if="form.thumbnail_url" class="image-preview thumbnail">
+              <img :src="form.thumbnail_url" alt="썸네일 미리보기" />
+            </div>
+          </div>
+
+          <div class="form-row">
             <div class="form-group">
               <label>상태</label>
               <select v-model="form.is_active">
@@ -131,7 +143,14 @@
         <div class="specs-content">
           <div class="specs-header">
             <h3>규격 목록</h3>
-            <button class="btn btn-sm btn-primary" @click="openSpecForm()">+ 규격 추가</button>
+            <!-- 맞춤피복은 규격추가 버튼 숨김 -->
+            <button v-if="selectedProduct?.clothing_type !== 'custom'" class="btn btn-sm btn-primary" @click="openSpecForm()">+ 규격 추가</button>
+          </div>
+          
+          <!-- 맞춤피복 안내 문구 -->
+          <div v-if="selectedProduct?.clothing_type === 'custom'" class="custom-notice">
+            <span class="notice-icon">📐</span>
+            맞춤피복은 기본 규격 "맞춤"이 자동으로 생성됩니다. 가격만 수정 가능합니다.
           </div>
 
           <table class="specs-table">
@@ -156,7 +175,8 @@
                 </td>
                 <td class="actions">
                   <button class="btn btn-sm btn-outline" @click="openSpecForm(spec)">수정</button>
-                  <button class="btn btn-sm btn-danger" @click="deleteSpec(spec)">삭제</button>
+                  <!-- 맞춤피복은 삭제 버튼 숨김 -->
+                  <button v-if="selectedProduct?.clothing_type !== 'custom'" class="btn btn-sm btn-danger" @click="deleteSpec(spec)">삭제</button>
                 </td>
               </tr>
               <tr v-if="specs.length === 0">
@@ -739,5 +759,21 @@ async function deleteSpec(spec) {
   text-align: center;
   color: #9ca3af;
   padding: 40px;
+}
+
+.custom-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fef3c7;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #92400e;
+}
+
+.notice-icon {
+  font-size: 16px;
 }
 </style>

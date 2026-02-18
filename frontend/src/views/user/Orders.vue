@@ -8,7 +8,8 @@
       <button :class="['tab', { active: activeStatus === 'all' }]" @click="activeStatus = 'all'">전체</button>
       <button :class="['tab', { active: activeStatus === 'confirmed' }]" @click="activeStatus = 'confirmed'">주문확인</button>
       <button :class="['tab', { active: activeStatus === 'shipped' }]" @click="activeStatus = 'shipped'">배송중</button>
-      <button :class="['tab', { active: activeStatus === 'delivered' }]" @click="activeStatus = 'delivered'">완료</button>
+      <button :class="['tab', { active: activeStatus === 'delivered' }]" @click="activeStatus = 'delivered'">배송완료</button>
+      <button :class="['tab', { active: activeStatus === 'received' }]" @click="activeStatus = 'received'">수령완료</button>
       <button :class="['tab', { active: activeStatus === 'cancelled' }]" @click="activeStatus = 'cancelled'">취소</button>
     </div>
 
@@ -95,6 +96,7 @@
           </div>
 
           <div class="detail-actions">
+            <button v-if="canReceive(order)" class="btn-receive" @click="receiveOrder(order)">수령 완료</button>
             <button v-if="canCancel(order)" class="btn-cancel" @click="cancelOrder(order)">주문 취소</button>
           </div>
         </div>
@@ -121,7 +123,8 @@ const statusLabels = {
   confirmed: '확인',
   processing: '준비중',
   shipped: '배송중',
-  delivered: '완료',
+  delivered: '배송완료',
+  received: '수령완료',
   cancelled: '취소',
   returned: '반품',
   refunded: '환불'
@@ -174,6 +177,10 @@ function canCancel(order) {
   return ['pending', 'confirmed'].includes(order.status)
 }
 
+function canReceive(order) {
+  return order.status === 'delivered'
+}
+
 async function cancelOrder(order) {
   if (!confirm('주문을 취소하시겠습니까?')) return
   try {
@@ -183,6 +190,18 @@ async function cancelOrder(order) {
     fetchOrders()
   } catch (error) {
     alert(error.response?.data?.detail || '취소에 실패했습니다.')
+  }
+}
+
+async function receiveOrder(order) {
+  if (!confirm('수령 완료 처리하시겠습니까?')) return
+  try {
+    await api.post(`/orders/${order.id}/receive`)
+    alert('수령 완료 처리되었습니다.')
+    expandedId.value = null
+    fetchOrders()
+  } catch (error) {
+    alert(error.response?.data?.detail || '수령 완료 처리에 실패했습니다.')
   }
 }
 
@@ -281,7 +300,8 @@ function formatDate(dateStr) {
 .status.confirmed { background: #dbeafe; color: #1e40af; }
 .status.processing { background: #e0e7ff; color: #4338ca; }
 .status.shipped { background: #dcfce7; color: #166534; }
-.status.delivered { background: #d1fae5; color: #065f46; }
+.status.delivered { background: #fef3c7; color: #92400e; }
+.status.received { background: #d1fae5; color: #065f46; }
 .status.cancelled { background: #fee2e2; color: #dc2626; }
 .status.pending { background: #fef3c7; color: #92400e; }
 
@@ -421,6 +441,21 @@ function formatDate(dateStr) {
 
 .btn-cancel:hover {
   background: #fef2f2;
+}
+
+.btn-receive {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: #16a34a;
+  color: white;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.btn-receive:hover {
+  background: #15803d;
 }
 
 .empty-state {

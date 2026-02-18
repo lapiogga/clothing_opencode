@@ -282,6 +282,7 @@ def get_available_inventory(
             "clothing_type": item.clothing_type.value,
             "description": item.description,
             "image_url": item.image_url,
+            "thumbnail_url": item.thumbnail_url,
             "spec_size": spec.size if spec else None,
             "spec_price": spec.price if spec else None,
             "available_quantity": inv.available_quantity,

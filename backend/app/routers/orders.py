@@ -143,3 +143,23 @@ def force_cancel_order(
     if not order:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="직권 취소가 불가능합니다")
     return order
+
+
+@router.post("/{order_id}/receive", response_model=OrderResponse)
+def receive_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+) -> Any:
+    """
+    주문 수령 완료 처리
+    - 배송 완료(DELIVERED) 상태에서만 수령 완료 가능
+    - 포인트 확정 차감 처리
+    """
+    order = order_service.receive_order(db, order_id, current_user.user_id)
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="수령 완료 처리가 불가능합니다. 배송 완료 상태인지 확인해주세요."
+        )
+    return _build_order_response(order)

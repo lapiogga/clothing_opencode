@@ -31,6 +31,7 @@ def init_db():
         sales,
         order,
         tailor,
-        point
+        point,
+        menu
     )
     Base.metadata.create_all(bind=engine)

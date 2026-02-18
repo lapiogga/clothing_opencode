@@ -155,3 +155,45 @@ def delete_clothing_spec(
     service = ClothingService(db)
     if not service.delete_spec(spec_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="규격을 찾을 수 없습니다")
+
+
+@router.get("/custom/available")
+def get_custom_clothings(
+    db: Session = Depends(get_db),
+    current_user: TokenData = Depends(get_current_user),
+):
+    """
+    맞춤피복 목록 조회 (재고 관리 없음)
+    - 활성화된 맞춤피복 품목과 규격 목록 반환
+    """
+    from app.models.clothing import ClothingItem, ClothingSpec, Category, ClothingType
+    
+    items = db.query(ClothingItem).filter(
+        ClothingItem.clothing_type == ClothingType.CUSTOM,
+        ClothingItem.is_active == True
+    ).all()
+    
+    result = []
+    for item in items:
+        category = db.query(Category).filter(Category.id == item.category_id).first()
+        specs = db.query(ClothingSpec).filter(
+            ClothingSpec.item_id == item.id,
+            ClothingSpec.is_active == True
+        ).all()
+        
+        for spec in specs:
+            result.append({
+                "item_id": item.id,
+                "spec_id": spec.id,
+                "item_name": item.name,
+                "category_id": category.id if category else None,
+                "category_name": category.name if category else None,
+                "clothing_type": "custom",
+                "description": item.description,
+                "image_url": item.image_url,
+                "thumbnail_url": item.thumbnail_url,
+                "spec_size": spec.size,
+                "spec_price": spec.price,
+            })
+    
+    return {"items": result, "total": len(result)}

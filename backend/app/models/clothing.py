@@ -36,6 +36,7 @@ class ClothingItem(Base, TimestampMixin):
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"), nullable=False, index=True)
     clothing_type: Mapped[ClothingType] = mapped_column(Enum(ClothingType), nullable=False)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    thumbnail_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 

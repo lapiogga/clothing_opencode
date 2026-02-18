@@ -1,82 +1,189 @@
 <template>
-  <div class="page">
-    <h1>오프라인 판매</h1>
-    
-    <div class="content-grid">
-      <div class="panel product-panel">
-        <div class="panel-header">
-          <span>품목 선택</span>
-          <input v-model="search" placeholder="품목명 검색..." class="search-input" />
+  <div class="offline-sale">
+    <div class="page-header">
+      <h1>오프라인 판매</h1>
+    </div>
+
+    <!-- 사용자 선택 섹션 -->
+    <div class="user-section">
+      <div class="user-search">
+        <label>구매자 검색:</label>
+        <div class="search-input-wrapper">
+          <input 
+            type="text" 
+            v-model="userSearchQuery" 
+            @input="searchUsers"
+            @focus="showUserPopup = true"
+            placeholder="이름 또는 군번 입력"
+          />
+          <button class="btn btn-sm btn-outline" @click="openUserPopup">조회</button>
         </div>
-        <div class="product-list">
-          <div
-            v-for="item in filteredItems"
-            :key="item.id"
-            class="product-row"
-            @click="addToCart(item)"
+        
+        <!-- 사용자 검색 결과 팝업 -->
+        <div v-if="showUserPopup && userSearchResults.length > 0" class="user-popup">
+          <div 
+            v-for="user in userSearchResults" 
+            :key="user.id" 
+            class="user-item"
+            @click="selectUser(user)"
           >
-            <div class="product-info">
-              <span class="name">{{ item.name }}</span>
-              <span class="code">{{ item.code }}</span>
+            <div class="user-info">
+              <span class="user-name">{{ user.name }}</span>
+              <span class="user-rank">{{ user.rank?.name }}</span>
+              <span class="user-unit">{{ user.unit }}</span>
             </div>
-            <div class="product-meta">
-              <span class="price">{{ item.points }}P</span>
-              <span class="stock">재고: {{ item.available_qty }}</span>
+            <div class="user-meta">
+              <span class="user-service-number">{{ user.service_number }}</span>
+              <span class="user-points">{{ user.current_point?.toLocaleString() }}P</span>
             </div>
           </div>
-          <div v-if="filteredItems.length === 0" class="empty">품목이 없습니다</div>
         </div>
       </div>
-      
-      <div class="panel cart-panel">
-        <div class="panel-header">
-          <span>장바구니 ({{ cart.length }})</span>
-          <button class="btn-text" @click="cart = []">비우기</button>
-        </div>
-        
-        <div class="cart-list">
-          <div v-for="(item, idx) in cart" :key="idx" class="cart-row">
-            <div class="cart-info">
-              <span class="name">{{ item.name }}</span>
-              <span class="spec" v-if="item.spec_size">{{ item.spec_size }}</span>
+
+      <!-- 선택된 사용자 정보 -->
+      <div v-if="selectedUser" class="selected-user">
+        <div class="user-card">
+          <div class="user-avatar">{{ selectedUser.name?.charAt(0) }}</div>
+          <div class="user-details">
+            <div class="user-name">{{ selectedUser.name }} ({{ selectedUser.rank?.name }})</div>
+            <div class="user-meta">
+              <span>{{ selectedUser.service_number }}</span>
+              <span>{{ selectedUser.unit }}</span>
             </div>
-            <div class="cart-qty">
-              <button @click="item.qty = Math.max(1, item.qty - 1)">-</button>
-              <span>{{ item.qty }}</span>
-              <button @click="item.qty++">+</button>
-            </div>
-            <span class="cart-total">{{ item.points * item.qty }}P</span>
-            <button class="btn-remove" @click="cart.splice(idx, 1)">×</button>
+            <div class="user-points">보유 포인트: <strong>{{ selectedUser.current_point?.toLocaleString() }}P</strong></div>
           </div>
-          <div v-if="cart.length === 0" class="empty">장바구니가 비어있습니다</div>
+          <button class="btn btn-sm btn-outline" @click="clearUser">변경</button>
         </div>
-        
-        <div class="customer-section">
-          <label>구매자 군번</label>
-          <div class="customer-input">
-            <input v-model="serviceNumber" placeholder="군번 입력" @keyup.enter="fetchCustomer" />
-            <button class="btn-sm" @click="fetchCustomer">조회</button>
-          </div>
-          <div v-if="customer" class="customer-info">
-            <span>{{ customer.name }} ({{ customer.unit || '소속없음' }})</span>
-            <span class="points">보유: {{ customer.current_point?.toLocaleString() }}P</span>
-          </div>
+      </div>
+    </div>
+
+    <!-- 상품 그리드 -->
+    <div class="products-section">
+      <div class="section-header">
+        <h3>판매 가능 품목</h3>
+        <div class="filter-bar">
+          <input 
+            type="text" 
+            v-model="productSearchQuery" 
+            placeholder="품목명 검색"
+            class="search-input"
+          />
         </div>
-        
-        <div class="summary">
-          <div class="row">
-            <span>총 포인트</span>
-            <span class="total-points">{{ totalPoints.toLocaleString() }}P</span>
-          </div>
-        </div>
-        
-        <button
-          class="btn-primary btn-block"
-          :disabled="cart.length === 0 || !customer || loading"
-          @click="processSale"
+      </div>
+
+      <div v-if="loading" class="loading">상품을 불러오는 중...</div>
+
+      <div v-else class="product-grid">
+        <div 
+          v-for="product in filteredProducts" 
+          :key="product.inventory_id" 
+          class="product-card"
+          @click="addToCart(product)"
         >
-          {{ loading ? '처리 중...' : '판매 완료' }}
-        </button>
+          <div class="product-image">
+            <img v-if="product.thumbnail_url || product.image_url" :src="product.thumbnail_url || product.image_url" />
+            <span v-else class="no-image">📦</span>
+          </div>
+          <div class="product-info">
+            <div class="product-name">{{ product.item_name }}</div>
+            <div class="product-category">{{ product.category_name }}</div>
+            <div class="product-spec" v-if="product.spec_size">[{{ product.spec_size }}]</div>
+            <div class="product-price">{{ product.spec_price?.toLocaleString() }}P</div>
+            <div class="product-stock">재고: {{ product.available_quantity }}개</div>
+          </div>
+        </div>
+
+        <div v-if="filteredProducts.length === 0" class="no-products">
+          표시할 상품이 없습니다.
+        </div>
+      </div>
+    </div>
+
+    <!-- 장바구니 패널 -->
+    <div class="cart-section">
+      <div class="cart-header">
+        <h3>판매 목록</h3>
+        <span class="cart-count">{{ cartItems.length }}개</span>
+      </div>
+
+      <div v-if="cartItems.length === 0" class="cart-empty">
+        상품을 선택하세요
+      </div>
+
+      <div v-else class="cart-items">
+        <div v-for="(item, index) in cartItems" :key="index" class="cart-item">
+          <div class="item-info">
+            <div class="item-name">{{ item.item_name }}</div>
+            <div class="item-spec" v-if="item.spec_size">[{{ item.spec_size }}]</div>
+          </div>
+          <div class="item-quantity">
+            <button @click="decreaseQuantity(index)">-</button>
+            <span>{{ item.quantity }}</span>
+            <button @click="increaseQuantity(index)">+</button>
+          </div>
+          <div class="item-price">{{ (item.spec_price * item.quantity)?.toLocaleString() }}P</div>
+          <button class="item-remove" @click="removeFromCart(index)">×</button>
+        </div>
+      </div>
+
+      <div class="cart-summary">
+        <div class="summary-row">
+          <span>총 상품 수</span>
+          <span>{{ totalQuantity }}개</span>
+        </div>
+        <div class="summary-row total">
+          <span>합계</span>
+          <span>{{ totalPoints?.toLocaleString() }}P</span>
+        </div>
+      </div>
+
+      <button 
+        class="btn btn-primary btn-block checkout-btn"
+        @click="checkout"
+        :disabled="!canCheckout || submitting"
+      >
+        {{ submitting ? '처리 중...' : '판매 완료' }}
+      </button>
+
+      <div v-if="!selectedUser" class="warning">
+        구매자를 선택하세요
+      </div>
+      <div v-else-if="totalPoints > selectedUser.current_point" class="warning">
+        포인트 부족 ({{ (totalPoints - selectedUser.current_point)?.toLocaleString() }}P 부족)
+      </div>
+    </div>
+
+    <!-- 수량 선택 모달 -->
+    <div v-if="showQuantityModal" class="modal-overlay" @click.self="closeQuantityModal">
+      <div class="modal-content modal-small">
+        <div class="modal-header">
+          <h3>{{ selectedProduct?.item_name }}</h3>
+          <button class="close-btn" @click="closeQuantityModal">×</button>
+        </div>
+        
+        <div class="modal-body">
+          <div v-if="selectedProduct?.spec_size" class="spec-info">
+            규격: {{ selectedProduct.spec_size }}
+          </div>
+          <div class="price-info">
+            단가: {{ selectedProduct?.spec_price?.toLocaleString() }}P
+          </div>
+          
+          <div class="form-group">
+            <label>수량</label>
+            <div class="quantity-input">
+              <button @click="modalQuantity = Math.max(1, modalQuantity - 1)">-</button>
+              <input type="number" v-model.number="modalQuantity" min="1" :max="selectedProduct?.available_quantity" />
+              <button @click="modalQuantity = Math.min(selectedProduct?.available_quantity || 1, modalQuantity + 1)">+</button>
+            </div>
+            <span class="max-hint">최대 {{ selectedProduct?.available_quantity }}개</span>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="closeQuantityModal">취소</button>
+          <button class="btn btn-primary" @click="confirmAddToCart">추가</button>
+        </div>
       </div>
     </div>
   </div>
@@ -84,362 +191,796 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useAuthStore } from '@/stores/auth'
 import api from '@/api'
+import { useAuthStore } from '@/stores/auth'
 
-const auth = useAuthStore()
-const search = ref('')
-const items = ref([])
-const cart = ref([])
-const serviceNumber = ref('')
-const customer = ref(null)
+const authStore = useAuthStore()
+
+// State
 const loading = ref(false)
+const submitting = ref(false)
+const products = ref([])
+const cartItems = ref([])
+const userSearchQuery = ref('')
+const userSearchResults = ref([])
+const selectedUser = ref(null)
+const showUserPopup = ref(false)
+const productSearchQuery = ref('')
 
-const filteredItems = computed(() => {
-  if (!search.value) return items.value
-  const q = search.value.toLowerCase()
-  return items.value.filter(i => 
-    i.name.toLowerCase().includes(q) || 
-    i.code?.toLowerCase().includes(q)
+// Quantity modal
+const showQuantityModal = ref(false)
+const selectedProduct = ref(null)
+const modalQuantity = ref(1)
+
+// Computed
+const filteredProducts = computed(() => {
+  if (!productSearchQuery.value) return products.value
+  const query = productSearchQuery.value.toLowerCase()
+  return products.value.filter(p => 
+    p.item_name?.toLowerCase().includes(query) ||
+    p.category_name?.toLowerCase().includes(query)
   )
 })
 
+const totalQuantity = computed(() => {
+  return cartItems.value.reduce((sum, item) => sum + item.quantity, 0)
+})
+
 const totalPoints = computed(() => {
-  return cart.value.reduce((sum, i) => sum + i.points * i.qty, 0)
+  return cartItems.value.reduce((sum, item) => sum + (item.spec_price * item.quantity), 0)
 })
 
-onMounted(() => {
-  fetchInventory()
+const canCheckout = computed(() => {
+  if (!selectedUser.value) return false
+  if (cartItems.value.length === 0) return false
+  if (totalPoints.value > selectedUser.value.current_point) return false
+  return true
 })
 
-async function fetchInventory() {
-  try {
-    const res = await api.get('/inventory/available', {
-      params: { sales_office_id: auth.user?.sales_office_id }
-    })
-    items.value = (res.data.items || res.data).map(i => ({
-      id: i.item_id,
-      name: i.item_name,
-      code: i.item_code,
-      points: i.points,
-      available_qty: i.available_quantity,
-      spec_id: i.spec_id,
-      spec_size: i.spec_size,
-    }))
-  } catch (e) {
-    console.error('Failed to fetch inventory:', e)
-  }
-}
+// Methods
+onMounted(async () => {
+  await fetchProducts()
+})
 
-async function fetchCustomer() {
-  if (!serviceNumber.value) {
-    customer.value = null
-    return
-  }
-  try {
-    const res = await api.get(`/users/by-service-number/${serviceNumber.value}`)
-    customer.value = res.data
-  } catch (e) {
-    customer.value = null
-    alert('사용자를 찾을 수 없습니다')
-  }
-}
-
-function addToCart(item) {
-  const existing = cart.value.find(c => c.id === item.id && c.spec_id === item.spec_id)
-  if (existing) {
-    if (existing.qty < item.available_qty) existing.qty++
-  } else {
-    cart.value.push({ ...item, qty: 1 })
-  }
-}
-
-async function processSale() {
-  if (cart.value.length === 0 || !customer.value) return
-  
-  if (customer.value.current_point < totalPoints.value) {
-    alert('포인트가 부족합니다.')
+async function fetchProducts() {
+  const salesOfficeId = authStore.user?.sales_office_id
+  if (!salesOfficeId) {
+    alert('판매소 정보가 없습니다.')
     return
   }
   
   loading.value = true
   try {
-    await api.post('/sales/offline', {
-      user_id: customer.value.id,
-      sales_office_id: auth.user?.sales_office_id,
-      items: cart.value.map(i => ({
-        item_id: i.id,
-        spec_id: i.spec_id,
-        quantity: i.qty,
-        unit_price: i.points,
-      }))
+    const res = await api.get('/inventory/available', {
+      params: {
+        sales_office_id: salesOfficeId,
+        page_size: 100,
+      }
     })
-    alert('판매가 완료되었습니다.')
-    cart.value = []
-    customer.value = null
-    serviceNumber.value = ''
-    fetchInventory()
-  } catch (e) {
-    alert('판매 처리에 실패했습니다.')
+    // Filter only ready_made products (custom products don't have inventory)
+    products.value = (res.data.items || []).filter(item => item.clothing_type === 'ready_made')
+  } catch (error) {
+    console.error('Failed to fetch products:', error)
+    alert('상품을 불러오지 못했습니다.')
   } finally {
     loading.value = false
+  }
+}
+
+let searchTimeout = null
+async function searchUsers() {
+  if (searchTimeout) clearTimeout(searchTimeout)
+  
+  if (!userSearchQuery.value.trim()) {
+    userSearchResults.value = []
+    return
+  }
+  
+  searchTimeout = setTimeout(async () => {
+    try {
+      const res = await api.get('/users', {
+        params: {
+          keyword: userSearchQuery.value,
+          page_size: 10,
+        }
+      })
+      userSearchResults.value = res.data.items || []
+    } catch (error) {
+      console.error('Failed to search users:', error)
+    }
+  }, 300)
+}
+
+function openUserPopup() {
+  if (userSearchQuery.value.trim()) {
+    searchUsers()
+  }
+  showUserPopup.value = true
+}
+
+function selectUser(user) {
+  selectedUser.value = user
+  showUserPopup.value = false
+  userSearchQuery.value = ''
+  userSearchResults.value = []
+}
+
+function clearUser() {
+  selectedUser.value = null
+}
+
+function addToCart(product) {
+  selectedProduct.value = product
+  modalQuantity.value = 1
+  showQuantityModal.value = true
+}
+
+function closeQuantityModal() {
+  showQuantityModal.value = false
+  selectedProduct.value = null
+}
+
+function confirmAddToCart() {
+  if (!selectedProduct.value || modalQuantity.value < 1) return
+  
+  const existingIndex = cartItems.value.findIndex(
+    item => item.inventory_id === selectedProduct.value.inventory_id
+  )
+  
+  if (existingIndex >= 0) {
+    cartItems.value[existingIndex].quantity += modalQuantity.value
+  } else {
+    cartItems.value.push({
+      ...selectedProduct.value,
+      quantity: modalQuantity.value,
+    })
+  }
+  
+  closeQuantityModal()
+}
+
+function increaseQuantity(index) {
+  const item = cartItems.value[index]
+  if (item.quantity < item.available_quantity) {
+    item.quantity++
+  }
+}
+
+function decreaseQuantity(index) {
+  const item = cartItems.value[index]
+  if (item.quantity > 1) {
+    item.quantity--
+  } else {
+    removeFromCart(index)
+  }
+}
+
+function removeFromCart(index) {
+  cartItems.value.splice(index, 1)
+}
+
+async function checkout() {
+  if (!canCheckout.value) return
+  
+  if (!confirm(`${selectedUser.value.name}님에게 ${totalPoints.value?.toLocaleString()}P 판매하시겠습니까?`)) {
+    return
+  }
+  
+  submitting.value = true
+  try {
+    const salesOfficeId = authStore.user?.sales_office_id
+    
+    const payload = {
+      user_id: selectedUser.value.id,
+      sales_office_id: salesOfficeId,
+      items: cartItems.value.map(item => ({
+        item_id: item.item_id,
+        spec_id: item.spec_id,
+        quantity: item.quantity,
+        unit_price: item.spec_price,
+        payment_method: 'point',
+      })),
+    }
+    
+    const res = await api.post('/sales/offline', payload)
+    
+    alert(`판매가 완료되었습니다.\n주문번호: ${res.data.order_id}`)
+    
+    // Reset
+    cartItems.value = []
+    selectedUser.value = null
+    
+    // Refresh products
+    await fetchProducts()
+  } catch (error) {
+    alert(error.response?.data?.detail || '판매 처리에 실패했습니다.')
+  } finally {
+    submitting.value = false
   }
 }
 </script>
 
 <style scoped>
-.page {
+.offline-sale {
   padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
-.page h1 {
-  font-size: 20px;
+.page-header {
+  margin-bottom: 20px;
+}
+
+.page-header h1 {
+  font-size: 24px;
   font-weight: 600;
-  margin-bottom: 16px;
 }
 
-.content-grid {
-  display: grid;
-  grid-template-columns: 1fr 380px;
-  gap: 16px;
-}
-
-.panel {
+/* 사용자 선택 섹션 */
+.user-section {
   background: white;
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  padding: 16px;
+  margin-bottom: 20px;
 }
 
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid #e5e7eb;
+.user-search {
+  position: relative;
+}
+
+.user-search label {
+  display: block;
   font-weight: 500;
+  margin-bottom: 8px;
+  color: #374151;
 }
 
-.search-input {
-  padding: 6px 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  font-size: 13px;
-}
-
-.product-panel {
-  min-height: 500px;
-}
-
-.product-list {
-  max-height: 450px;
-  overflow-y: auto;
-}
-
-.product-row {
+.search-input-wrapper {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid #f3f4f6;
-  cursor: pointer;
+  gap: 8px;
 }
 
-.product-row:hover {
+.search-input-wrapper input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.user-popup {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 100;
+  margin-top: 4px;
+}
+
+.user-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.user-item:hover {
   background: #f9fafb;
 }
 
-.product-info .name {
-  font-weight: 500;
-  font-size: 14px;
+.user-item:last-child {
+  border-bottom: none;
 }
 
-.product-info .code {
-  font-size: 12px;
-  color: #9ca3af;
-  margin-left: 8px;
-}
-
-.product-meta {
-  text-align: right;
-}
-
-.product-meta .price {
-  color: #3b82f6;
-  font-weight: 500;
-  font-size: 14px;
-}
-
-.product-meta .stock {
-  font-size: 12px;
-  color: #6b7280;
-  display: block;
-}
-
-.cart-panel {
-  display: flex;
-  flex-direction: column;
-}
-
-.cart-list {
-  flex: 1;
-  max-height: 200px;
-  overflow-y: auto;
-  padding: 8px 0;
-}
-
-.cart-row {
+.user-info {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
-  border-bottom: 1px solid #f3f4f6;
+  margin-bottom: 4px;
 }
 
-.cart-info {
-  flex: 1;
-}
-
-.cart-info .name {
-  font-size: 13px;
+.user-name {
   font-weight: 500;
 }
 
-.cart-info .spec {
-  font-size: 11px;
+.user-rank {
+  font-size: 12px;
   color: #6b7280;
-  margin-left: 4px;
 }
 
-.cart-qty {
+.user-unit {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.user-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.user-points {
+  color: #3b82f6;
+  font-weight: 500;
+}
+
+.selected-user {
+  margin-top: 16px;
+}
+
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #f0f9ff;
+  border-radius: 8px;
+  border: 1px solid #bae6fd;
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  background: #3b82f6;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+.user-details {
+  flex: 1;
+}
+
+.user-details .user-name {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.user-details .user-meta {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.user-details .user-points {
+  font-size: 13px;
+}
+
+/* 상품 섹션 */
+.products-section {
+  margin-bottom: 20px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.section-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.filter-bar {
+  display: flex;
+  gap: 8px;
+}
+
+.search-input {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  width: 200px;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #6b7280;
+}
+
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.product-card {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid #e5e7eb;
+}
+
+.product-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.product-image {
+  height: 100px;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.product-image img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.no-image {
+  font-size: 36px;
+  color: #9ca3af;
+}
+
+.product-info {
+  padding: 10px;
+}
+
+.product-name {
+  font-weight: 500;
+  font-size: 13px;
+  margin-bottom: 2px;
+  color: #1f2937;
+}
+
+.product-category {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-bottom: 2px;
+}
+
+.product-spec {
+  font-size: 11px;
+  color: #6b7280;
+  margin-bottom: 2px;
+}
+
+.product-price {
+  font-size: 13px;
+  color: #3b82f6;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.product-stock {
+  font-size: 11px;
+  color: #16a34a;
+}
+
+.no-products {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px;
+  color: #6b7280;
+  background: white;
+  border-radius: 8px;
+}
+
+/* 장바구니 섹션 */
+.cart-section {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  position: sticky;
+  bottom: 0;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.cart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.cart-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.cart-count {
+  background: #3b82f6;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.cart-empty {
+  text-align: center;
+  padding: 20px;
+  color: #9ca3af;
+}
+
+.cart-items {
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+
+.cart-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.cart-item:last-child {
+  border-bottom: none;
+}
+
+.item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-info .item-name {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item-info .item-spec {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.item-quantity {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.cart-qty button {
-  width: 22px;
-  height: 22px;
+.item-quantity button {
+  width: 24px;
+  height: 24px;
   border: 1px solid #d1d5db;
   border-radius: 4px;
   background: white;
   cursor: pointer;
+  font-size: 14px;
 }
 
-.cart-qty span {
+.item-quantity span {
   min-width: 24px;
   text-align: center;
   font-size: 13px;
 }
 
-.cart-total {
-  font-weight: 500;
+.item-price {
   font-size: 13px;
+  font-weight: 500;
   min-width: 60px;
   text-align: right;
 }
 
-.btn-remove {
+.item-remove {
   background: none;
   border: none;
-  color: #dc2626;
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.empty {
-  text-align: center;
   color: #9ca3af;
-  padding: 24px;
-  font-size: 13px;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0;
+  line-height: 1;
 }
 
-.customer-section {
-  padding: 12px 16px;
+.item-remove:hover {
+  color: #dc2626;
+}
+
+.cart-summary {
   background: #f9fafb;
-  border-top: 1px solid #e5e7eb;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
 }
 
-.customer-section label {
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.summary-row.total {
+  font-weight: 600;
+  font-size: 15px;
+  color: #3b82f6;
+  margin-bottom: 0;
+  padding-top: 8px;
+  border-top: 1px dashed #d1d5db;
+}
+
+.checkout-btn {
+  padding: 12px;
+  font-size: 15px;
+}
+
+.warning {
+  background: #fef2f2;
+  color: #dc2626;
+  padding: 8px 12px;
+  border-radius: 6px;
   font-size: 12px;
+  margin-top: 8px;
+  text-align: center;
+}
+
+/* 모달 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.modal-small {
+  max-width: 320px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
   color: #6b7280;
 }
 
-.customer-input {
-  display: flex;
-  gap: 8px;
-  margin-top: 4px;
+.modal-body {
+  padding: 16px;
 }
 
-.customer-input input {
-  flex: 1;
-  padding: 8px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
+.spec-info, .price-info {
   font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 8px;
 }
 
-.customer-info {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 8px;
-  font-size: 13px;
-}
-
-.customer-info .points {
-  color: #16a34a;
+.price-info {
+  color: #3b82f6;
   font-weight: 500;
 }
 
-.summary {
-  padding: 12px 16px;
+.form-group {
+  margin-bottom: 0;
+}
+
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.quantity-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quantity-input input {
+  width: 60px;
+  text-align: center;
+  padding: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+}
+
+.quantity-input button {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+}
+
+.max-hint {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 4px;
+  display: block;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px;
   border-top: 1px solid #e5e7eb;
 }
 
-.summary .row {
-  display: flex;
-  justify-content: space-between;
+/* 버튼 */
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
   font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.total-points {
-  font-weight: 600;
-  font-size: 16px;
-  color: #3b82f6;
-}
-
-.btn-block {
-  margin: 12px 16px;
-  padding: 12px;
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-primary {
   background: #3b82f6;
   color: white;
   border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
 }
 
-.btn-primary:disabled {
-  background: #9ca3af;
-  cursor: not-allowed;
+.btn-primary:hover:not(:disabled) {
+  background: #2563eb;
 }
 
-.btn-text {
-  background: none;
-  border: none;
-  color: #6b7280;
-  cursor: pointer;
-  font-size: 13px;
+.btn-secondary {
+  background: white;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.btn-outline {
+  background: white;
+  color: #3b82f6;
+  border: 1px solid #3b82f6;
 }
 
 .btn-sm {
   padding: 6px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  background: white;
-  cursor: pointer;
   font-size: 13px;
+}
+
+.btn-block {
+  width: 100%;
 }
 </style>

@@ -18,6 +18,7 @@ class OrderStatus(str, enum.Enum):
     - PROCESSING: 상품 준비중
     - SHIPPED: 배송중
     - DELIVERED: 배송완료
+    - RECEIVED: 수령완료
     - CANCELLED: 주문 취소
     - RETURNED: 반품
     - REFUNDED: 환불 완료
@@ -27,6 +28,7 @@ class OrderStatus(str, enum.Enum):
     PROCESSING = "processing"     # 상품 준비중
     SHIPPED = "shipped"           # 배송중
     DELIVERED = "delivered"       # 배송완료
+    RECEIVED = "received"         # 수령완료
     CANCELLED = "cancelled"       # 주문 취소
     RETURNED = "returned"         # 반품
     REFUNDED = "refunded"         # 환불 완료

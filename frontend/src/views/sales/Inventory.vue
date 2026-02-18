@@ -270,17 +270,6 @@ const adjustmentForm = reactive({
   reason: ''
 })
 
-const columns = [
-  { key: 'product', label: '품목' },
-  { key: 'category', label: '카테고리' },
-  { key: 'quantity', label: '재고수량' },
-  { key: 'reserved', label: '예약수량' },
-  { key: 'available', label: '가용수량' },
-  { key: 'status', label: '상태' },
-  { key: 'lastUpdated', label: '최종수정' },
-  { key: 'actions', label: '관리' }
-]
-
 const totalPages = computed(() => Math.ceil(pagination.value.total / pagination.value.pageSize))
 
 onMounted(async () => {
@@ -422,8 +411,8 @@ function closeAdjustment() {
 async function submitAdjustment() {
   submitting.value = true
   try {
-    const userRes = await api.get('/auth/me')
-    const salesOfficeId = userRes.data.sales_office_id
+    // 재고 아이템에서 판매소 ID 가져오기
+    const salesOfficeId = adjustmentItem.value.sales_office_id
     if (!salesOfficeId) {
       alert('판매소 정보가 없습니다.')
       return

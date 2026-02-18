@@ -2,127 +2,42 @@
   <aside class="sidebar">
     <nav>
       <ul class="menu">
-        <li>
-          <router-link to="/" class="menu-item" active-class="active">
-            대시보드
-          </router-link>
-        </li>
-
-        <template v-if="authStore.userRole === 'admin'">
-          <li class="menu-category">사용자 관리</li>
-          <li>
-            <router-link to="/admin/users" class="menu-item" active-class="active">
-              사용자 목록
+        <template v-for="menu in menus" :key="menu.id">
+          <li v-if="menu.is_category" class="menu-category">{{ menu.name }}</li>
+          <li v-else-if="menu.path">
+            <router-link :to="menu.path" class="menu-item" active-class="active">
+              {{ menu.name }}
             </router-link>
           </li>
-          <li>
-            <router-link to="/admin/points" class="menu-item" active-class="active">
-              포인트 지급
-            </router-link>
-          </li>
-          
-          <li class="menu-category">품목 관리</li>
-          <li>
-            <router-link to="/admin/categories" class="menu-item" active-class="active">
-              카테고리 관리
-            </router-link>
-          </li>
-          <li>
-            <router-link to="/admin/clothing" class="menu-item" active-class="active">
-              피복 품목 관리
-            </router-link>
-          </li>
-          
-          <li class="menu-category">조직 관리</li>
-          <li>
-            <router-link to="/admin/sales-offices" class="menu-item" active-class="active">
-              피복판매소 관리
-            </router-link>
-          </li>
+          <template v-if="menu.children && menu.children.length > 0">
+            <li v-for="child in menu.children" :key="child.id">
+              <router-link :to="child.path" class="menu-item" active-class="active">
+                {{ child.name }}
+              </router-link>
+            </li>
+          </template>
         </template>
-
-        <template v-if="authStore.hasAnyRole(['admin', 'sales_office'])">
-          <li class="menu-category">판매 관리</li>
-          <li>
-            <router-link to="/sales/offline" class="menu-item" active-class="active">
-              오프라인 판매
-            </router-link>
-          </li>
-          <li>
-            <router-link to="/sales/orders" class="menu-item" active-class="active">
-              온라인 주문 관리
-            </router-link>
-          </li>
-          <li>
-            <router-link to="/sales/inventory" class="menu-item" active-class="active">
-              재고 관리
-            </router-link>
-          </li>
-          <li>
-            <router-link to="/sales/refund" class="menu-item" active-class="active">
-              반품 처리
-            </router-link>
-          </li>
-          <li>
-            <router-link to="/sales/stats" class="menu-item" active-class="active">
-              통계
-            </router-link>
-          </li>
-        </template>
-
-        <template v-if="authStore.hasAnyRole(['admin', 'general'])">
-          <li class="menu-category">쇼핑몰</li>
-          <li>
-            <router-link to="/user/shop" class="menu-item" active-class="active">
-              피복 쇼핑
-            </router-link>
-          </li>
-          <li>
-            <router-link to="/user/cart" class="menu-item" active-class="active">
-              장바구니
-            </router-link>
-          </li>
-          <li>
-            <router-link to="/user/orders" class="menu-item" active-class="active">
-              주문/배송 조회
-            </router-link>
-          </li>
-          <li>
-            <router-link to="/user/points" class="menu-item" active-class="active">
-              포인트 조회
-            </router-link>
-          </li>
-        </template>
-
-        <template v-if="authStore.hasAnyRole(['admin', 'tailor_company'])">
-          <li class="menu-category">체척권 관리</li>
-          <li>
-            <router-link to="/tailor/register" class="menu-item" active-class="active">
-              체척권 등록
-            </router-link>
-          </li>
-          <li>
-            <router-link to="/tailor/vouchers" class="menu-item" active-class="active">
-              체척권 현황
-            </router-link>
-          </li>
-        </template>
-
-        <li class="menu-category">내 정보</li>
-        <li>
-          <router-link to="/user/profile" class="menu-item" active-class="active">
-            프로필
-          </router-link>
-        </li>
       </ul>
     </nav>
   </aside>
 </template>
 
 <script setup>
-import { useAuthStore } from '@/stores/auth'
+import { ref, onMounted } from 'vue'
+import api from '@/api'
 
-const authStore = useAuthStore()
+const menus = ref([])
+
+onMounted(() => fetchMenus())
+
+async function fetchMenus() {
+  try {
+    const res = await api.get('/menus/tree')
+    menus.value = res.data
+  } catch (e) {
+    console.error('Failed to fetch menus:', e)
+  }
+}
 </script>
 
 <style scoped>
@@ -142,20 +57,22 @@ const authStore = useAuthStore()
 }
 
 .menu-category {
-  padding: 15px 20px 8px 20px;
-  color: #95a5a6;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  padding: 12px 20px 8px 20px;
+  color: #f59e0b;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 8px;
 }
 
 .menu-item {
   display: block;
-  padding: 12px 20px 12px 25px;
+  padding: 10px 20px 10px 25px;
   color: #bdc3c7;
   text-decoration: none;
-  font-size: 14px;
+  font-size: 13px;
   transition: all 0.2s;
   border-left: 3px solid transparent;
 }

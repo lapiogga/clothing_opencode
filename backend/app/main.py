@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import auth, orders, sales, inventory, tailor, stats
-from app.routers import users, categories, clothings, points, sales_offices, delivery
+from app.routers import users, categories, clothings, points, sales_offices, delivery, menus
 
 app = FastAPI(
     title="피복 구매관리 시스템",
@@ -30,6 +30,7 @@ app.include_router(tailor.router, prefix="/api/tailor-vouchers", tags=["tailor"]
 app.include_router(sales_offices.router, prefix="/api/sales-offices", tags=["sales-offices"])
 app.include_router(stats.router, prefix="/api/stats", tags=["stats"])
 app.include_router(delivery.router, prefix="/api/delivery-locations", tags=["delivery"])
+app.include_router(menus.router, prefix="/api/menus", tags=["menus"])
 
 
 @app.get("/")

@@ -46,6 +46,18 @@ const routes = [
     meta: { requiresAuth: true, roles: ['admin'] }
   },
   {
+    path: '/admin/tailor-companies',
+    name: 'TailorCompanyList',
+    component: () => import('@/views/admin/TailorCompanyList.vue'),
+    meta: { requiresAuth: true, roles: ['admin'] }
+  },
+  {
+    path: '/admin/menus',
+    name: 'MenuList',
+    component: () => import('@/views/admin/MenuList.vue'),
+    meta: { requiresAuth: true, roles: ['admin'] }
+  },
+  {
     path: '/admin/points',
     name: 'PointGrant',
     component: () => import('@/views/admin/PointGrant.vue'),
@@ -56,31 +68,31 @@ const routes = [
     path: '/sales/offline',
     name: 'OfflineSale',
     component: () => import('@/views/sales/OfflineSale.vue'),
-    meta: { requiresAuth: true, roles: ['admin', 'sales_office'] }
+    meta: { requiresAuth: true, roles: ['sales_office'] }
   },
   {
     path: '/sales/orders',
     name: 'SalesOrderList',
     component: () => import('@/views/sales/OrderList.vue'),
-    meta: { requiresAuth: true, roles: ['admin', 'sales_office'] }
+    meta: { requiresAuth: true, roles: ['sales_office'] }
   },
   {
     path: '/sales/inventory',
     name: 'Inventory',
     component: () => import('@/views/sales/Inventory.vue'),
-    meta: { requiresAuth: true, roles: ['admin', 'sales_office'] }
+    meta: { requiresAuth: true, roles: ['sales_office'] }
   },
   {
     path: '/sales/refund',
     name: 'Refund',
     component: () => import('@/views/sales/Refund.vue'),
-    meta: { requiresAuth: true, roles: ['admin', 'sales_office'] }
+    meta: { requiresAuth: true, roles: ['sales_office'] }
   },
   {
     path: '/sales/stats',
     name: 'SalesStats',
     component: () => import('@/views/sales/Stats.vue'),
-    meta: { requiresAuth: true, roles: ['admin', 'sales_office'] }
+    meta: { requiresAuth: true, roles: ['sales_office'] }
   },
   
   {

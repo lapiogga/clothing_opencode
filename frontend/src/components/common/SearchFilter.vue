@@ -75,8 +75,18 @@ function handleSearch() {
 }
 
 function handleFilterChange(key, value) {
-  filterValues[key] = value
-  emit('filter-change', key, value)
+  // select의 value는 항상 문자열이므로 "null" → null, "true"/"false" → boolean 변환
+  let parsedValue = value
+  if (value === 'null' || value === '') {
+    parsedValue = null
+  } else if (value === 'true') {
+    parsedValue = true
+  } else if (value === 'false') {
+    parsedValue = false
+  }
+  
+  filterValues[key] = parsedValue
+  emit('filter-change', key, parsedValue)
   emit('update:modelValue', { search: searchValue.value, ...filterValues })
 }
 </script>
