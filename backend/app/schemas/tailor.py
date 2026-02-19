@@ -73,6 +73,7 @@ class VoucherResponse(BaseModel):
     tailor_company_id: Optional[int]
     order_id: Optional[int]
     item_id: int
+    item: Optional[dict] = None
     amount: int
     status: VoucherStatus
     issued_at: datetime
@@ -81,6 +82,7 @@ class VoucherResponse(BaseModel):
     cancelled_at: Optional[datetime]
     cancel_reason: Optional[str]
     expires_at: Optional[date]
+    notes: Optional[str] = None
 
     class Config:
         from_attributes = True

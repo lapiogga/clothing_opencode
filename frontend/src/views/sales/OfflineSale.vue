@@ -82,7 +82,7 @@
         >
           <div class="product-image">
             <img v-if="product.thumbnail_url || product.image_url" :src="product.thumbnail_url || product.image_url" />
-            <span v-else class="no-image">📦</span>
+            <span v-else class="no-image">📷</span>
           </div>
           <div class="product-info">
             <div class="product-name">{{ product.item_name }}</div>
@@ -278,15 +278,17 @@ async function searchUsers() {
   
   searchTimeout = setTimeout(async () => {
     try {
-      const res = await api.get('/users', {
+      const res = await api.get('/users/search', {
         params: {
           keyword: userSearchQuery.value,
           page_size: 10,
         }
       })
       userSearchResults.value = res.data.items || []
+      showUserPopup.value = true
     } catch (error) {
       console.error('Failed to search users:', error)
+      userSearchResults.value = []
     }
   }, 300)
 }
@@ -295,7 +297,6 @@ function openUserPopup() {
   if (userSearchQuery.value.trim()) {
     searchUsers()
   }
-  showUserPopup.value = true
 }
 
 function selectUser(user) {

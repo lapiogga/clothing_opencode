@@ -192,16 +192,18 @@ class MenuService:
             {"name": "재고 관리", "path": "/sales/inventory", "sort_order": 43, "is_category": False, "parent_name": "판매 관리", "allowed_roles": ["sales_office"]},
             {"name": "반품 처리", "path": "/sales/refund", "sort_order": 44, "is_category": False, "parent_name": "판매 관리", "allowed_roles": ["sales_office"]},
             {"name": "통계", "path": "/sales/stats", "sort_order": 45, "is_category": False, "parent_name": "판매 관리", "allowed_roles": ["sales_office"]},
+            {"name": "배송지 관리", "path": "/sales/delivery-locations", "sort_order": 46, "is_category": False, "parent_name": "판매 관리", "allowed_roles": ["sales_office"]},
             
             {"name": "쇼핑몰", "path": None, "sort_order": 50, "is_category": True, "allowed_roles": ["admin", "general"]},
             {"name": "피복 쇼핑", "path": "/user/shop", "sort_order": 51, "is_category": False, "parent_name": "쇼핑몰", "allowed_roles": ["admin", "general"]},
             {"name": "장바구니", "path": "/user/cart", "sort_order": 52, "is_category": False, "parent_name": "쇼핑몰", "allowed_roles": ["admin", "general"]},
             {"name": "주문/배송 조회", "path": "/user/orders", "sort_order": 53, "is_category": False, "parent_name": "쇼핑몰", "allowed_roles": ["admin", "general"]},
             {"name": "포인트 조회", "path": "/user/points", "sort_order": 54, "is_category": False, "parent_name": "쇼핑몰", "allowed_roles": ["admin", "general"]},
+            {"name": "체척권 조회", "path": "/user/vouchers", "sort_order": 55, "is_category": False, "parent_name": "쇼핑몰", "allowed_roles": ["admin", "general"]},
             
-            {"name": "체척권 관리", "path": None, "sort_order": 60, "is_category": True, "allowed_roles": ["tailor_company"]},
-            {"name": "체척권 등록", "path": "/tailor/register", "sort_order": 61, "is_category": False, "parent_name": "체척권 관리", "allowed_roles": ["tailor_company"]},
-            {"name": "체척권 현황", "path": "/tailor/vouchers", "sort_order": 62, "is_category": False, "parent_name": "체척권 관리", "allowed_roles": ["tailor_company"]},
+            {"name": "체척권 관리", "path": None, "sort_order": 60, "is_category": True, "allowed_roles": ["admin", "tailor_company"]},
+            {"name": "체척권 등록", "path": "/tailor/register", "sort_order": 61, "is_category": False, "parent_name": "체척권 관리", "allowed_roles": ["admin", "tailor_company"]},
+            {"name": "체척권 현황", "path": "/tailor/vouchers", "sort_order": 62, "is_category": False, "parent_name": "체척권 관리", "allowed_roles": ["admin", "tailor_company"]},
             
             {"name": "내 정보", "path": None, "sort_order": 70, "is_category": True, "allowed_roles": ["admin", "sales_office", "tailor_company", "general"]},
             {"name": "프로필", "path": "/user/profile", "sort_order": 71, "is_category": False, "parent_name": "내 정보", "allowed_roles": ["admin", "sales_office", "tailor_company", "general"]},

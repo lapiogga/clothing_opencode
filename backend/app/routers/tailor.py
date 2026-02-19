@@ -27,7 +27,7 @@ def get_tailor_companies(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    companies = db.query(TailorCompany).all()
+    companies = db.query(TailorCompany).filter(TailorCompany.is_active == True).all()
     return [
         {
             "id": c.id,
@@ -37,7 +37,6 @@ def get_tailor_companies(
             "address": c.address,
             "phone": c.phone,
             "manager_name": c.manager_name,
-            "manager_phone": c.manager_phone,
             "is_active": c.is_active,
         }
         for c in companies
@@ -170,11 +169,16 @@ def get_vouchers(
     user_id: Optional[int] = None,
     status: Optional[VoucherStatus] = None,
     keyword: Optional[str] = None,
+    clothing_type: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ) -> Any:
+    """
+    체척권 목록 조회
+    - clothing_type: 'custom'이면 맞춤피복 체척권만 조회
+    """
     query = db.query(TailorVoucher).options(
         joinedload(TailorVoucher.user),
         joinedload(TailorVoucher.item),
@@ -189,6 +193,13 @@ def get_vouchers(
     
     if status:
         query = query.filter(TailorVoucher.status == status)
+    
+    # 맞춤피복만 필터링
+    if clothing_type == 'custom':
+        from app.models.clothing import ClothingItem, ClothingType
+        query = query.join(ClothingItem, TailorVoucher.item_id == ClothingItem.id).filter(
+            ClothingItem.clothing_type == ClothingType.CUSTOM
+        )
     
     if keyword:
         query = query.filter(
@@ -207,6 +218,8 @@ def get_vouchers(
             "id": v.id,
             "voucher_number": v.voucher_number,
             "user_id": v.user_id,
+            "tailor_company_id": v.tailor_company_id,
+            "order_id": v.order_id,
             "user": {
                 "id": v.user.id,
                 "name": v.user.name,

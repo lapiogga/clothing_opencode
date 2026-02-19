@@ -102,13 +102,14 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import api from '@/api'
 
 const authStore = useAuthStore()
 const stats = ref({
-  totalUsers: 4,
-  salesOffices: 1,
-  tailorCompanies: 1,
-  clothingItems: 2,
+  totalUsers: 0,
+  salesOffices: 0,
+  tailorCompanies: 0,
+  clothingItems: 0,
   todaySales: 0,
   pendingDelivery: 0,
   lowStock: 0,
@@ -131,8 +132,13 @@ function formatPoint(point) {
   return point.toLocaleString()
 }
 
-onMounted(() => {
-  // TODO: API에서 데이터 가져오기
+onMounted(async () => {
+  try {
+    const res = await api.get('/stats/dashboard')
+    stats.value = { ...stats.value, ...res.data }
+  } catch (error) {
+    console.error('Failed to fetch dashboard stats:', error)
+  }
 })
 </script>
 

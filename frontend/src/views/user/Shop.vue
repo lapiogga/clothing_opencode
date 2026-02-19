@@ -101,11 +101,12 @@
               </label>
               <label class="radio-label">
                 <input type="radio" v-model="orderForm.delivery_type" value="direct" />
-                직접 수령
+                직접 배송
               </label>
             </div>
           </div>
 
+          <!-- 택배 배송 -->
           <template v-if="orderForm.delivery_type === 'parcel'">
             <div class="form-group">
               <label>수령인</label>
@@ -118,6 +119,37 @@
             <div class="form-group">
               <label>배송지 주소</label>
               <input type="text" v-model="orderForm.shipping_address" />
+            </div>
+          </template>
+
+          <!-- 직접 배송 -->
+          <template v-else-if="orderForm.delivery_type === 'direct'">
+            <div v-if="deliveryLocations.length === 0" class="no-delivery-locations">
+              <p>해당 판매소에 등록된 배송지가 없습니다.</p>
+              <p class="hint">판매소 관리자에게 문의해주세요.</p>
+            </div>
+            <div v-else class="form-group">
+              <label>배송지 선택</label>
+              <select v-model="orderForm.delivery_location_id">
+                <option :value="null">배송지를 선택하세요</option>
+                <option v-for="loc in deliveryLocations" :key="loc.id" :value="loc.id">
+                  {{ loc.name }} ({{ loc.address }})
+                </option>
+              </select>
+            </div>
+            <div v-if="selectedDeliveryLocation" class="delivery-location-info">
+              <div class="info-item">
+                <span class="label">주소:</span>
+                <span>{{ selectedDeliveryLocation.address }}</span>
+              </div>
+              <div v-if="selectedDeliveryLocation.contact_person" class="info-item">
+                <span class="label">담당자:</span>
+                <span>{{ selectedDeliveryLocation.contact_person }}</span>
+              </div>
+              <div v-if="selectedDeliveryLocation.contact_phone" class="info-item">
+                <span class="label">연락처:</span>
+                <span>{{ selectedDeliveryLocation.contact_phone }}</span>
+              </div>
             </div>
           </template>
 
@@ -235,6 +267,7 @@ const typeFilter = ref('all')
 const readyMadeProducts = ref([])
 const customProducts = ref([])
 const availableSpecs = ref([])
+const deliveryLocations = ref([])
 
 // Modal state
 const showReadyMadeModal = ref(false)
@@ -250,6 +283,7 @@ const orderForm = ref({
   recipient_name: '',
   recipient_phone: '',
   shipping_address: '',
+  delivery_location_id: null,
 })
 
 // Custom clothing form
@@ -311,6 +345,11 @@ const orderTotal = computed(() => {
   return selectedSpecPrice.value * orderForm.value.quantity
 })
 
+const selectedDeliveryLocation = computed(() => {
+  if (!orderForm.value.delivery_location_id) return null
+  return deliveryLocations.value.find(loc => loc.id === orderForm.value.delivery_location_id)
+})
+
 const canSubmitOrder = computed(() => {
   if (!orderForm.value.spec_id || orderForm.value.quantity < 1) return false
   if (orderForm.value.quantity > maxQuantity.value) return false
@@ -319,6 +358,8 @@ const canSubmitOrder = computed(() => {
     if (!orderForm.value.recipient_name || !orderForm.value.recipient_phone || !orderForm.value.shipping_address) {
       return false
     }
+  } else if (orderForm.value.delivery_type === 'direct') {
+    if (!orderForm.value.delivery_location_id) return false
   }
   return true
 })
@@ -378,6 +419,22 @@ async function fetchCustomProducts() {
   }
 }
 
+async function fetchDeliveryLocations() {
+  if (!selectedSalesOfficeId.value) {
+    deliveryLocations.value = []
+    return
+  }
+  try {
+    const res = await api.get('/delivery-locations', {
+      params: { sales_office_id: selectedSalesOfficeId.value }
+    })
+    deliveryLocations.value = res.data || []
+  } catch (error) {
+    console.error('Failed to fetch delivery locations:', error)
+    deliveryLocations.value = []
+  }
+}
+
 function openProductModal(product) {
   selectedProduct.value = product
   
@@ -391,6 +448,9 @@ function openProductModal(product) {
     orderForm.value.spec_id = null
     orderForm.value.quantity = 1
     orderForm.value.delivery_type = 'parcel'
+    orderForm.value.delivery_location_id = null
+    // 배송지 목록 가져오기
+    fetchDeliveryLocations()
     showReadyMadeModal.value = true
   }
 }
@@ -420,9 +480,10 @@ async function submitOrder() {
         quantity: orderForm.value.quantity,
       }],
       delivery_type: orderForm.value.delivery_type,
-      recipient_name: orderForm.value.recipient_name,
-      recipient_phone: orderForm.value.recipient_phone,
-      shipping_address: orderForm.value.shipping_address,
+      recipient_name: orderForm.value.delivery_type === 'parcel' ? orderForm.value.recipient_name : null,
+      recipient_phone: orderForm.value.delivery_type === 'parcel' ? orderForm.value.recipient_phone : null,
+      shipping_address: orderForm.value.delivery_type === 'parcel' ? orderForm.value.shipping_address : null,
+      delivery_location_id: orderForm.value.delivery_type === 'direct' ? orderForm.value.delivery_location_id : null,
     }
     
     await api.post('/orders', orderData)
@@ -794,6 +855,46 @@ function closeVoucherResult() {
   align-items: center;
   gap: 6px;
   cursor: pointer;
+}
+
+.no-delivery-locations {
+  background: #fef3c7;
+  padding: 16px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.no-delivery-locations p {
+  color: #92400e;
+  margin-bottom: 4px;
+}
+
+.no-delivery-locations .hint {
+  font-size: 12px;
+  color: #b45309;
+}
+
+.delivery-location-info {
+  background: #f0fdf4;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-top: 8px;
+}
+
+.delivery-location-info .info-item {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.delivery-location-info .info-item:last-child {
+  margin-bottom: 0;
+}
+
+.delivery-location-info .label {
+  color: #6b7280;
+  min-width: 60px;
 }
 
 .order-summary {

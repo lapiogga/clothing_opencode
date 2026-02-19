@@ -89,6 +89,12 @@ const routes = [
     meta: { requiresAuth: true, roles: ['sales_office'] }
   },
   {
+    path: '/sales/delivery-locations',
+    name: 'DeliveryLocations',
+    component: () => import('@/views/sales/DeliveryLocations.vue'),
+    meta: { requiresAuth: true, roles: ['sales_office'] }
+  },
+  {
     path: '/sales/stats',
     name: 'SalesStats',
     component: () => import('@/views/sales/Stats.vue'),
@@ -117,6 +123,12 @@ const routes = [
     path: '/user/points',
     name: 'Points',
     component: () => import('@/views/user/Points.vue'),
+    meta: { requiresAuth: true, roles: ['admin', 'general'] }
+  },
+  {
+    path: '/user/vouchers',
+    name: 'UserVouchers',
+    component: () => import('@/views/user/Vouchers.vue'),
     meta: { requiresAuth: true, roles: ['admin', 'general'] }
   },
   {

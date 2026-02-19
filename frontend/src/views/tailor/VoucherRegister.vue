@@ -66,10 +66,10 @@
           >
             <div class="voucher-info">
               <span class="number">{{ voucher.voucher_number }}</span>
-              <span class="item">{{ voucher.item_name || `품목 #${voucher.item_id}` }}</span>
+              <span class="item">{{ voucher.item?.name || `품목 #${voucher.item_id}` }}</span>
             </div>
             <div class="voucher-meta">
-              <span class="amount">{{ voucher.amount.toLocaleString() }}P</span>
+              <span class="amount">{{ voucher.amount?.toLocaleString() }}P</span>
               <span class="status">미등록</span>
             </div>
           </div>
@@ -135,12 +135,13 @@ async function searchUsers() {
   
   searchTimeout = setTimeout(async () => {
     try {
-      const res = await api.get('/users', {
+      const res = await api.get('/users/search', {
         params: { keyword: searchQuery.value, page_size: 10 }
       })
       searchResults.value = res.data.items || res.data
     } catch (e) {
       console.error('Search failed:', e)
+      searchResults.value = []
     }
   }, 300)
 }
@@ -153,7 +154,7 @@ async function selectUser(user) {
   
   try {
     const res = await api.get('/tailor-vouchers', {
-      params: { user_id: user.id, status: 'issued' }
+      params: { user_id: user.id, status: 'issued', clothing_type: 'custom' }
     })
     pendingVouchers.value = res.data.items || res.data
   } catch (e) {

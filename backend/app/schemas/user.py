@@ -69,6 +69,8 @@ class UserResponse(BaseModel):
     current_point: int
     reserved_point: int
     available_point: int
+    sales_office_id: Optional[int] = None
+    tailor_company_id: Optional[int] = None
     created_at: datetime
 
     class Config:

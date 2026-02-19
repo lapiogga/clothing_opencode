@@ -41,6 +41,37 @@ def check_admin(current_user: TokenData = Depends(get_current_user)):
     return current_user
 
 
+def check_staff(current_user: TokenData = Depends(get_current_user)):
+    """관리자, 판매소, 체척업체 권한 확인"""
+    allowed_roles = [UserRole.ADMIN.value, UserRole.SALES_OFFICE.value, UserRole.TAILOR_COMPANY.value]
+    if current_user.role not in allowed_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="권한이 없습니다"
+        )
+    return current_user
+
+
+@router.get("/search")
+def search_users(
+    keyword: str = Query(..., min_length=1),
+    page_size: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db),
+    current_user: TokenData = Depends(check_staff),
+):
+    """
+    사용자 검색 (판매소, 체척업체용)
+    - 이름 또는 군번으로 검색
+    """
+    service = UserService(db)
+    return service.get_list(
+        page=1,
+        page_size=page_size,
+        keyword=keyword,
+        is_active=True,
+    )
+
+
 @router.get("", response_model=UserListResponse)
 def get_users(
     page: int = Query(1, ge=1),
