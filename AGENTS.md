@@ -179,13 +179,17 @@ export const useUserStore = defineStore('user', () => {
 ### 엔드포인트
 
 ```
-/api/auth/*           # 인증
-/api/users/*          # 사용자 관리 (admin)
-/api/orders/*         # 주문 (사용자용)
-/api/sales/*          # 판매 관리 (판매소용)
-/api/inventory/*      # 재고
-/api/points/*         # 포인트
-/api/tailor-vouchers/* # 체척권
+/api/auth/*              # 인증
+/api/users/*             # 사용자 관리 (admin)
+/api/users/search        # 사용자 검색 (admin, sales_office, tailor_company)
+/api/orders/*            # 주문 (사용자용)
+/api/sales/*             # 판매 관리 (판매소용)
+/api/inventory/*         # 재고
+/api/points/*            # 포인트
+/api/tailor-vouchers/*   # 체척권
+/api/delivery-locations  # 배송지 관리
+/api/stats/dashboard     # 대시보드 통계 (역할별)
+/api/stats/sales         # 판매 통계 (판매소)
 ```
 
 ### 응답 형식
@@ -201,20 +205,42 @@ export const useUserStore = defineStore('user', () => {
 | 엔드포인트 | admin | sales_office | tailor_company | general |
 |-----------|-------|--------------|----------------|---------|
 | /api/users/* | ✅ | ❌ | ❌ | ❌ |
+| /api/users/search | ✅ | ✅ | ✅ | ❌ |
 | /api/sales/orders | ✅ | ✅ | ❌ | ❌ |
 | /api/orders | ❌ | ❌ | ❌ | ✅ |
+| /api/delivery-locations | ✅ | ✅ (자신만) | ❌ | ✅ (조회만) |
+| /api/stats/dashboard | ✅ | ✅ | ✅ | ✅ |
+| /api/stats/sales | ✅ | ✅ (자신만) | ❌ | ❌ |
+| /api/tailor-vouchers/* | ✅ | ❌ | ✅ | ✅ (자신만) |
 
 ## 프론트엔드 규칙
 
 ```
 views/
-├── admin/        # 군수담당자 (UserList, PointGrant, ClothingList)
-├── sales/        # 판매소 (OrderList, Inventory, OfflineSale)
+├── admin/        # 군수담당자 (UserList, PointGrant, ClothingList, TailorCompanyList)
+├── sales/        # 판매소 (OrderList, Inventory, OfflineSale, Refund, Stats, DeliveryLocations)
 ├── tailor/       # 체척업체 (VoucherList, VoucherRegister)
-└── user/         # 일반사용자 (Shop, Orders, Points, Profile)
+└── user/         # 일반사용자 (Shop, Orders, Points, Vouchers, Profile)
 ```
 
 **UI 원칙**: 컴팩트 리스트, 모달로 편집, 색상 (Primary `#3b82f6`, Success `#16a34a`, Danger `#dc2626`)
+
+## 주요 기능
+
+### 배송 방식
+| 배송 유형 | 설명 | 필수 정보 |
+|-----------|------|-----------|
+| `parcel` | 택배 배송 | 수령인, 연락처, 배송지 주소 |
+| `direct` | 직접 배송 | 배송지 선택 (판매소 등록 배송지) |
+
+### 체척권 관리
+- **발행**: 맞춤피복 구매 시 자동 발행
+- **상태**: issued(발행됨) → registered(등록됨) → used(사용완료)
+- **취소**: 미사용 체척권 취소 요청 가능
+
+### 통계 시스템
+- **대시보드**: 역할별 맞춤 통계 (관리자/판매소/체척업체/사용자)
+- **판매 통계**: 일별 추이, 인기 상품, 카테고리별 비중
 
 ## 파일 생성 체크리스트
 
