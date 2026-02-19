@@ -3,7 +3,20 @@
     <div class="page-header">
       <h1>피복 쇼핑</h1>
       <div class="user-info">
-        <span class="points">보유 포인트: <strong>{{ authStore.user?.current_point?.toLocaleString() }}P</strong></span>
+        <div class="point-info">
+          <span class="point-item">
+            <label>보유</label>
+            <strong>{{ authStore.user?.current_point?.toLocaleString() }}P</strong>
+          </span>
+          <span class="point-item">
+            <label>예약</label>
+            <strong>{{ authStore.user?.reserved_point?.toLocaleString() || 0 }}P</strong>
+          </span>
+          <span class="point-item available">
+            <label>사용가능</label>
+            <strong>{{ availablePoint?.toLocaleString() }}P</strong>
+          </span>
+        </div>
       </div>
     </div>
 
@@ -321,7 +334,7 @@ const filteredProducts = computed(() => {
       product.total_stock += item.available_quantity || 0
     }
   })
-
+  
   let products = Array.from(groupedMap.values())
   
   if (typeFilter.value !== 'all') {
@@ -329,6 +342,12 @@ const filteredProducts = computed(() => {
   }
   
   return products
+})
+
+const availablePoint = computed(() => {
+  const current = authStore.user?.current_point || 0
+  const reserved = authStore.user?.reserved_point || 0
+  return Math.max(0, current - reserved)
 })
 
 const selectedSpecPrice = computed(() => {
@@ -353,7 +372,7 @@ const selectedDeliveryLocation = computed(() => {
 const canSubmitOrder = computed(() => {
   if (!orderForm.value.spec_id || orderForm.value.quantity < 1) return false
   if (orderForm.value.quantity > maxQuantity.value) return false
-  if (orderTotal.value > (authStore.user?.current_point || 0)) return false
+  if (orderTotal.value > availablePoint.value) return false
   if (orderForm.value.delivery_type === 'parcel') {
     if (!orderForm.value.recipient_name || !orderForm.value.recipient_phone || !orderForm.value.shipping_address) {
       return false
@@ -503,10 +522,15 @@ async function submitOrder() {
 }
 
 async function issueVoucher() {
+  // 사용 가능 포인트 확인
+  if (customForm.value.amount > availablePoint.value) {
+    alert(`사용 가능한 포인트가 부족합니다.\n사용가능: ${availablePoint.value.toLocaleString()}P\n필요: ${customForm.value.amount.toLocaleString()}P`)
+    return
+  }
+  
   submitting.value = true
   try {
     const res = await api.post('/tailor-vouchers/issue-direct', {
-      user_id: authStore.user.id,
       item_id: selectedProduct.value.item_id,
       amount: customForm.value.amount,
       sales_office_id: selectedSalesOfficeId.value,
@@ -555,9 +579,41 @@ function closeVoucherResult() {
   color: #6b7280;
 }
 
-.user-info .points strong {
+.point-info {
+  display: flex;
+  gap: 16px;
+}
+
+.point-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px;
+  background: #f3f4f6;
+  border-radius: 8px;
+}
+
+.point-item label {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-bottom: 2px;
+}
+
+.point-item strong {
+  font-size: 16px;
+  color: #374151;
+}
+
+.point-item.available {
+  background: #dbeafe;
+}
+
+.point-item.available label {
   color: #3b82f6;
-  font-size: 18px;
+}
+
+.point-item.available strong {
+  color: #1d4ed8;
 }
 
 .sales-office-select {

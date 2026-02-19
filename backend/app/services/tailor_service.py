@@ -39,7 +39,20 @@ def issue_voucher_direct(db: Session, user_id: int, item_id: int, amount: int, s
     """
     맞춤피복 체척권 직접 발행 (주문 없이)
     - 사용자가 맞춤피복 선택 시 즉시 체척권 발행
+    - 발행과 동시에 포인트 차감
     """
+    from app.models.user import User
+    
+    # 사용자 포인트 확인
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise ValueError("사용자를 찾을 수 없습니다.")
+    
+    # 사용 가능 포인트 확인
+    available_point = user.current_point - user.reserved_point
+    if available_point < amount:
+        raise ValueError(f"사용 가능한 포인트가 부족합니다. (사용가능: {available_point}P, 필요: {amount}P)")
+    
     voucher_number = generate_voucher_number()
     
     voucher = TailorVoucher(
@@ -51,6 +64,20 @@ def issue_voucher_direct(db: Session, user_id: int, item_id: int, amount: int, s
         notes=notes or "맞춤피복 체척권 발행",
     )
     db.add(voucher)
+    
+    # 포인트 차감
+    user.current_point -= amount
+    transaction = PointTransaction(
+        user_id=user_id,
+        transaction_type=TransactionType.DEDUCT,
+        amount=amount,
+        balance_after=user.current_point,
+        reserved_after=user.reserved_point,
+        voucher_id=voucher.id,
+        description="체척권 발행 포인트 차감",
+    )
+    db.add(transaction)
+    
     db.commit()
     db.refresh(voucher)
     return voucher

@@ -225,7 +225,7 @@ async function requestCancel() {
   canceling.value = true
   try {
     await api.post(`/tailor-vouchers/${selectedVoucher.value.id}/cancel-request`, {
-      cancel_reason: cancelReason.value.trim()
+      reason: cancelReason.value.trim()
     })
     alert('취소 요청이 완료되었습니다.')
     closeCancelModal()

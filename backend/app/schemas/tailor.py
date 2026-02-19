@@ -44,10 +44,9 @@ class VoucherCreate(BaseModel):
 
 class VoucherIssueDirect(BaseModel):
     """맞춤피복 직접 체척권 발행용 (주문 없이)"""
-    user_id: int
     item_id: int
     amount: int
-    sales_office_id: int
+    sales_office_id: Optional[int] = None
     expires_at: Optional[date] = None
     notes: Optional[str] = None
 

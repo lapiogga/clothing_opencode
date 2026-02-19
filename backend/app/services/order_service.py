@@ -18,7 +18,14 @@ def generate_order_number() -> str:
 
 
 def create_order(db: Session, user_id: int, order_data: OrderCreate) -> Order:
+    from app.models.user import User
+    
     order_number = generate_order_number()
+    
+    # 사용자 확인 및 포인트 검증
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise ValueError("사용자를 찾을 수 없습니다.")
     
     order = Order(
         order_number=order_number,
@@ -37,6 +44,7 @@ def create_order(db: Session, user_id: int, order_data: OrderCreate) -> Order:
     total_amount = 0
     total_point = 0
     total_voucher = 0
+    order_items_list = []
     
     for item_data in order_data.items:
         spec = db.query(ClothingSpec).filter(ClothingSpec.id == item_data.spec_id).first() if item_data.spec_id else None
@@ -53,6 +61,7 @@ def create_order(db: Session, user_id: int, order_data: OrderCreate) -> Order:
             payment_method=item_data.payment_method,
         )
         db.add(order_item)
+        order_items_list.append(order_item)
         
         total_amount += total_price
         if item_data.payment_method.value == "point":
@@ -61,6 +70,11 @@ def create_order(db: Session, user_id: int, order_data: OrderCreate) -> Order:
             total_voucher += total_price
     
     order.total_amount = total_amount
+    
+    # 포인트 검증 (마이너스 방지)
+    available_point = user.current_point - user.reserved_point
+    if total_point > available_point:
+        raise ValueError(f"사용 가능한 포인트가 부족합니다. (사용가능: {available_point}P, 필요: {total_point}P)")
     
     if order_data.order_type == OrderType.ONLINE:
         order.reserved_point = total_point
@@ -71,7 +85,7 @@ def create_order(db: Session, user_id: int, order_data: OrderCreate) -> Order:
         order.used_point = total_point
         order.used_voucher_amount = total_voucher
         _deduct_points(db, user_id, order.id, total_point)
-        _deduct_inventory(db, order.id, order_data.sales_office_id, order.items)
+        _deduct_inventory(db, order.id, order_data.sales_office_id, order_items_list)
         order.status = OrderStatus.DELIVERED
     
     if order_data.delivery_type:
