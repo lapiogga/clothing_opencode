@@ -7,11 +7,12 @@ from app.models.base import TimestampMixin
 
 
 class VoucherStatus(str, enum.Enum):
-    ISSUED = "issued"
-    REGISTERED = "registered"
-    USED = "used"
-    CANCELLED = "cancelled"
-    EXPIRED = "expired"
+    ISSUED = "issued"              # 발행됨
+    REGISTERED = "registered"      # 등록됨 (체척업체)
+    USED = "used"                  # 사용완료
+    CANCEL_REQUESTED = "cancel_requested"  # 취소 요청됨
+    CANCELLED = "cancelled"        # 취소됨
+    EXPIRED = "expired"            # 만료됨
 
 
 class TailorCompany(Base, TimestampMixin):

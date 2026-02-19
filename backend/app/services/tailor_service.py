@@ -72,8 +72,22 @@ def get_voucher(db: Session, voucher_id: int) -> Optional[TailorVoucher]:
 
 
 def register_voucher(db: Session, staff_id: int, register_data: VoucherRegister) -> Optional[TailorVoucher]:
+    """
+    체척권 등록 (체척업체)
+    - 발행된(ISSUED) 상태만 등록 가능
+    - 취소 요청/취소됨/사용완료 상태는 등록 불가
+    """
     voucher = db.query(TailorVoucher).filter(TailorVoucher.id == register_data.voucher_id).first()
-    if not voucher or voucher.status != VoucherStatus.ISSUED:
+    
+    if not voucher:
+        return None
+    
+    # 발행된 상태만 등록 가능
+    if voucher.status != VoucherStatus.ISSUED:
+        return None
+    
+    # 취소 요청/취소됨 상태 체크
+    if voucher.status in [VoucherStatus.CANCEL_REQUESTED, VoucherStatus.CANCELLED]:
         return None
     
     voucher.tailor_company_id = register_data.tailor_company_id
@@ -87,6 +101,10 @@ def register_voucher(db: Session, staff_id: int, register_data: VoucherRegister)
 
 
 def request_cancel_voucher(db: Session, user_id: int, voucher_id: int, cancel_data: VoucherCancelRequest) -> Optional[TailorVoucher]:
+    """
+    체척권 취소 요청 (사용자)
+    - 취소 요청 상태로 변경 (승인 대기)
+    """
     voucher = db.query(TailorVoucher).filter(
         TailorVoucher.id == voucher_id,
         TailorVoucher.user_id == user_id,
@@ -95,18 +113,16 @@ def request_cancel_voucher(db: Session, user_id: int, voucher_id: int, cancel_da
     if not voucher:
         return None
     
-    if voucher.status not in [VoucherStatus.ISSUED, VoucherStatus.REGISTERED]:
+    # 발행된 상태만 취소 요청 가능
+    if voucher.status != VoucherStatus.ISSUED:
         return None
     
-    if voucher.status == VoucherStatus.REGISTERED:
+    # 이미 등록된 경우 취소 불가
+    if voucher.tailor_company_id:
         return None
     
     voucher.cancel_reason = cancel_data.reason
-    voucher.cancelled_at = datetime.utcnow()
-    voucher.cancelled_by = user_id
-    voucher.status = VoucherStatus.CANCELLED
-    
-    _refund_voucher_amount(db, voucher)
+    voucher.status = VoucherStatus.CANCEL_REQUESTED
     
     db.commit()
     db.refresh(voucher)
@@ -114,9 +130,18 @@ def request_cancel_voucher(db: Session, user_id: int, voucher_id: int, cancel_da
 
 
 def approve_cancel_voucher(db: Session, staff_id: int, voucher_id: int, approved: bool) -> Optional[TailorVoucher]:
+    """
+    체척권 취소 승인/반려 (관리자)
+    - 승인: 취소 상태로 변경 + 포인트 환불
+    - 반려: 원래 상태로 복구
+    """
     voucher = db.query(TailorVoucher).filter(TailorVoucher.id == voucher_id).first()
     
-    if not voucher or voucher.status == VoucherStatus.CANCELLED:
+    if not voucher:
+        return None
+    
+    # 취소 요청 상태만 승인/반려 가능
+    if voucher.status != VoucherStatus.CANCEL_REQUESTED:
         return None
     
     if approved:
@@ -124,6 +149,10 @@ def approve_cancel_voucher(db: Session, staff_id: int, voucher_id: int, approved
         voucher.cancelled_at = datetime.utcnow()
         voucher.cancelled_by = staff_id
         _refund_voucher_amount(db, voucher)
+    else:
+        # 반려 시 원래 상태로 복구
+        voucher.status = VoucherStatus.ISSUED
+        voucher.cancel_reason = None
     
     db.commit()
     db.refresh(voucher)

@@ -177,7 +177,8 @@ class MenuService:
             {"name": "사용자 관리", "path": "/admin/users", "sort_order": 11, "is_category": False, "parent_name": "시스템 관리", "allowed_roles": ["admin"]},
             {"name": "피복판매소 관리", "path": "/admin/sales-offices", "sort_order": 12, "is_category": False, "parent_name": "시스템 관리", "allowed_roles": ["admin"]},
             {"name": "체척업체 관리", "path": "/admin/tailor-companies", "sort_order": 13, "is_category": False, "parent_name": "시스템 관리", "allowed_roles": ["admin"]},
-            {"name": "화면 관리", "path": "/admin/menus", "sort_order": 14, "is_category": False, "parent_name": "시스템 관리", "allowed_roles": ["admin"]},
+            {"name": "체척권 취소 승인", "path": "/admin/voucher-cancellations", "sort_order": 14, "is_category": False, "parent_name": "시스템 관리", "allowed_roles": ["admin"]},
+            {"name": "화면 관리", "path": "/admin/menus", "sort_order": 15, "is_category": False, "parent_name": "시스템 관리", "allowed_roles": ["admin"]},
             
             {"name": "품목 관리", "path": None, "sort_order": 20, "is_category": True, "allowed_roles": ["admin"]},
             {"name": "카테고리 관리", "path": "/admin/categories", "sort_order": 21, "is_category": False, "parent_name": "품목 관리", "allowed_roles": ["admin"]},

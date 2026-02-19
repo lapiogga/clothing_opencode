@@ -52,6 +52,12 @@ const routes = [
     meta: { requiresAuth: true, roles: ['admin'] }
   },
   {
+    path: '/admin/voucher-cancellations',
+    name: 'VoucherCancelApproval',
+    component: () => import('@/views/admin/VoucherCancelApproval.vue'),
+    meta: { requiresAuth: true, roles: ['admin'] }
+  },
+  {
     path: '/admin/menus',
     name: 'MenuList',
     component: () => import('@/views/admin/MenuList.vue'),
