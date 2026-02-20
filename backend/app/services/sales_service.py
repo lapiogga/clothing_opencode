@@ -31,6 +31,7 @@ def create_offline_sale(db: Session, staff_id: int, sale_data: OfflineSaleCreate
     total_amount = 0
     total_point = 0
     total_voucher = 0
+    order_items_list = []
     
     for item_data in sale_data.items:
         total_price = item_data.unit_price * item_data.quantity
@@ -45,6 +46,7 @@ def create_offline_sale(db: Session, staff_id: int, sale_data: OfflineSaleCreate
             payment_method=item_data.payment_method,
         )
         db.add(order_item)
+        order_items_list.append(order_item)
         
         total_amount += total_price
         if item_data.payment_method.value == "point":
@@ -59,7 +61,7 @@ def create_offline_sale(db: Session, staff_id: int, sale_data: OfflineSaleCreate
     if total_point > 0:
         _deduct_user_points(db, sale_data.user_id, order.id, total_point)
     
-    _deduct_inventory_for_sale(db, order.id, sale_data.sales_office_id, order.items, staff_id)
+    _deduct_inventory_for_sale(db, order.id, sale_data.sales_office_id, order_items_list, staff_id)
     
     db.commit()
     db.refresh(order)

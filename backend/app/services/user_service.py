@@ -77,7 +77,7 @@ class UserService:
             rank_id=user_data.rank_id,
             service_number=user_data.service_number,
             unit=user_data.unit,
-            service_years=user_data.service_years,
+            enlistment_date=user_data.enlistment_date,
             retirement_date=user_data.retirement_date,
             sales_office_id=user_data.sales_office_id,
             tailor_company_id=user_data.tailor_company_id,

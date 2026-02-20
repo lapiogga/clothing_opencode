@@ -334,8 +334,9 @@ class ClothingService:
         if not item:
             return False
 
-        has_orders = self.db.query(ClothingSpec).join(
-            "order_items"
+        from app.models.order import OrderItem
+        has_orders = self.db.query(OrderItem).join(
+            ClothingSpec, OrderItem.spec_id == ClothingSpec.id
         ).filter(ClothingSpec.item_id == item_id).first()
         if has_orders:
             raise ValueError("주문 내역이 있는 품목은 삭제할 수 없습니다")
