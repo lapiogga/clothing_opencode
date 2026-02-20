@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <h1>반품 처리</h1>
+    <h1>판매현황</h1>
     
     <div class="tabs">
       <button :class="['tab', { active: tab === 'orders' }]" @click="tab = 'orders'">

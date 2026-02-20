@@ -2,7 +2,7 @@
   <div class="stats">
     <!-- Header -->
     <header class="header">
-      <h1>판매 통계</h1>
+      <h1>통계</h1>
       <div class="period-selector">
         <button 
           v-for="p in periods" 

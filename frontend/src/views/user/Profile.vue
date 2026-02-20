@@ -1,7 +1,7 @@
 <template>
   <div class="profile">
     <div class="page-header">
-      <h1>내 정보</h1>
+      <h1>프로필</h1>
     </div>
 
     <div class="profile-container">

@@ -1,7 +1,7 @@
 <template>
   <div class="clothing-list">
     <div class="page-header">
-      <h1>품목 관리</h1>
+      <h1>피복 품목 관리</h1>
       <button class="btn btn-primary" @click="openForm()">
         + 품목 등록
       </button>

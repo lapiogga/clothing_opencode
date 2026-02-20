@@ -1,7 +1,7 @@
 <template>
   <div class="order-list">
     <div class="page-header">
-      <h1>주문 관리</h1>
+      <h1>온라인 주문 관리</h1>
     </div>
 
     <div class="filter-bar">

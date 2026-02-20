@@ -80,6 +80,7 @@ def create_order(db: Session, user_id: int, order_data: OrderCreate) -> Order:
         order.reserved_point = total_point
         order.used_point = 0
         _reserve_points(db, user_id, order.id, total_point)
+        _reserve_inventory(db, order.id, order_data.sales_office_id, order_items_list)
         order.status = OrderStatus.CONFIRMED
     else:
         order.used_point = total_point
@@ -123,6 +124,18 @@ def _reserve_points(db: Session, user_id: int, order_id: int, amount: int) -> No
             description="주문 포인트 예약",
         )
         db.add(transaction)
+
+
+def _reserve_inventory(db: Session, order_id: int, sales_office_id: int, items: list) -> None:
+    """온라인 주문 생성 시 재고 예약"""
+    for item in items:
+        inventory = db.query(Inventory).filter(
+            Inventory.sales_office_id == sales_office_id,
+            Inventory.item_id == item.item_id,
+            Inventory.spec_id == item.spec_id,
+        ).first()
+        if inventory:
+            inventory.reserved_quantity += item.quantity
 
 
 def _deduct_points(db: Session, user_id: int, order_id: int, amount: int) -> None:
@@ -198,6 +211,10 @@ def cancel_order(db: Session, order_id: int, user_id: int, cancel_data: OrderCan
     if order.reserved_point > 0:
         _release_points(db, user_id, order_id, order.reserved_point)
     
+    # 온라인 주문인 경우 예약 재고 해제
+    if order.order_type == OrderType.ONLINE:
+        _release_reserved_inventory(db, order)
+    
     order.status = OrderStatus.CANCELLED
     order.cancelled_at = datetime.utcnow()
     order.cancel_reason = cancel_data.reason
@@ -267,6 +284,18 @@ def _refund_points(db: Session, user_id: int, order_id: int, amount: int) -> Non
         db.add(transaction)
 
 
+def _release_reserved_inventory(db: Session, order: Order) -> None:
+    """온라인 주문 취소 시 예약 재고 해제"""
+    for order_item in order.items:
+        inventory = db.query(Inventory).filter(
+            Inventory.sales_office_id == order.sales_office_id,
+            Inventory.item_id == order_item.item_id,
+            Inventory.spec_id == order_item.spec_id,
+        ).first()
+        if inventory and inventory.reserved_quantity >= order_item.quantity:
+            inventory.reserved_quantity -= order_item.quantity
+
+
 def _restore_inventory(db: Session, order_id: int, sales_office_id: int, items: list) -> None:
     for item in items:
         inventory = db.query(Inventory).filter(
@@ -323,6 +352,7 @@ def receive_order(db: Session, order_id: int, user_id: int) -> Optional[Order]:
     주문 수령 완료 처리
     - 배송 완료(DELIVERED) 상태에서만 수령 완료 가능
     - 포인트 확정 차감 처리
+    - 재고 확정 차감 처리 (예약 수량에서 실재고로 이동)
     """
     order = db.query(Order).filter(Order.id == order_id, Order.user_id == user_id).first()
     if not order:
@@ -335,11 +365,44 @@ def receive_order(db: Session, order_id: int, user_id: int) -> Optional[Order]:
     if order.reserved_point > 0:
         _confirm_points(db, user_id, order_id, order.reserved_point)
     
+    # 재고 확정 차감 (예약 수량 → 실재고 차감)
+    _confirm_inventory_deduction(db, order)
+    
     order.status = OrderStatus.RECEIVED
     
     db.commit()
     db.refresh(order)
     return order
+
+
+def _confirm_inventory_deduction(db: Session, order: Order) -> None:
+    """온라인 주문 수령 시 재고 확정 차감"""
+    for order_item in order.items:
+        inventory = db.query(Inventory).filter(
+            Inventory.sales_office_id == order.sales_office_id,
+            Inventory.item_id == order_item.item_id,
+            Inventory.spec_id == order_item.spec_id,
+        ).first()
+        if inventory:
+            before = inventory.quantity
+            reserved_before = inventory.reserved_quantity
+            
+            # 예약 수량 감소
+            inventory.reserved_quantity -= order_item.quantity
+            # 실재고 감소
+            inventory.quantity -= order_item.quantity
+            
+            history = InventoryHistory(
+                inventory_id=inventory.id,
+                adjustment_type=AdjustmentType.DECREASE,
+                quantity=order_item.quantity,
+                before_quantity=before,
+                after_quantity=inventory.quantity,
+                reason="온라인 주문 수령 확정",
+                adjusted_by=order.user_id,
+                order_id=order.id,
+            )
+            db.add(history)
 
 
 def _confirm_points(db: Session, user_id: int, order_id: int, amount: int) -> None:
