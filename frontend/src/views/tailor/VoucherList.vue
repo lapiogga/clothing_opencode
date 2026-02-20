@@ -10,7 +10,10 @@
         <button :class="['tab', { active: statusFilter === 'used' }]" @click="statusFilter = 'used'">사용</button>
         <button :class="['tab', { active: statusFilter === 'cancelled' }]" @click="statusFilter = 'cancelled'">취소</button>
       </div>
-      <input v-model="keyword" type="text" placeholder="군번, 이름 검색" class="search-input" @keyup.enter="fetchVouchers" />
+      <div class="search-section">
+        <input v-model="keyword" type="text" placeholder="군번, 이름 검색" class="search-input" @keyup.enter="fetchVouchers" />
+        <button v-if="isAdmin" class="btn-search" @click="fetchVouchers">검색</button>
+      </div>
     </div>
 
     <div v-if="loading" class="loading">조회 중...</div>
@@ -93,14 +96,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 import api from '@/api'
 
+const authStore = useAuthStore()
 const vouchers = ref([])
 const loading = ref(false)
 const statusFilter = ref('')
 const keyword = ref('')
 const expandedId = ref(null)
+
+const isAdmin = computed(() => authStore.userRole === 'admin')
 
 const statusLabels = {
   issued: '발급',
@@ -215,6 +222,21 @@ async function cancelVoucher(v) {
   border-radius: 16px;
   font-size: 13px;
   width: 180px;
+}
+
+.search-section {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-search {
+  padding: 8px 16px;
+  background: #7c3aed;
+  color: white;
+  border: none;
+  border-radius: 16px;
+  font-size: 13px;
+  cursor: pointer;
 }
 
 .loading {

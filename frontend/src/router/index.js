@@ -148,7 +148,7 @@ const routes = [
     path: '/tailor/register',
     name: 'VoucherRegister',
     component: () => import('@/views/tailor/VoucherRegister.vue'),
-    meta: { requiresAuth: true, roles: ['admin', 'tailor_company'] }
+    meta: { requiresAuth: true, roles: ['tailor_company'] }
   },
   {
     path: '/tailor/vouchers',

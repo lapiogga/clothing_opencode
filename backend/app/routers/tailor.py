@@ -186,8 +186,9 @@ def get_vouchers(
     
     if current_user.role == "tailor_company":
         pass
-    elif user_id:
-        query = query.filter(TailorVoucher.user_id == user_id)
+    elif current_user.role == "admin":
+        if user_id:
+            query = query.filter(TailorVoucher.user_id == user_id)
     else:
         query = query.filter(TailorVoucher.user_id == current_user.user_id)
     

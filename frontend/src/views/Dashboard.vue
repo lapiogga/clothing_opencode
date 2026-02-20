@@ -133,6 +133,7 @@ function formatPoint(point) {
 }
 
 onMounted(async () => {
+  await authStore.fetchUser()
   try {
     const res = await api.get('/stats/dashboard')
     stats.value = { ...stats.value, ...res.data }
