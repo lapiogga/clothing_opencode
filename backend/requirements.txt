@@ -6,3 +6,6 @@ pydantic-settings
 python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
+
+# PostgreSQL 드라이버 (Supabase용)
+psycopg2-binary

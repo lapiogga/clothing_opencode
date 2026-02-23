@@ -7,6 +7,13 @@ const baseURL = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api`
   : '/api'
 
+// 환경변수에서 API URL 가져오기 (Render 백엔드)
+// 개발 환경: /api (Vite 프록시)
+// 프로덕션: VITE_API_URL (Render URL)
+const baseURL = import.meta.env.VITE_API_URL 
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : '/api'
+
 const api = axios.create({
   baseURL,
   timeout: 15000,
