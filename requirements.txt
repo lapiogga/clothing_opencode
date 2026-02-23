@@ -1,0 +1,25 @@
+# Vercel Serverless Functions용 requirements.txt
+# 루트에 있어야 Vercel이 자동으로 설치
+
+# FastAPI 및 서버
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# 데이터베이스
+sqlalchemy>=2.0.0
+asyncpg>=0.29.0
+psycopg2-binary>=2.9.0
+greenlet>=3.0.0
+
+# 데이터 검증
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# 인증
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+
+
+# 기타
+python-multipart>=0.0.6
+mangum>=0.17.0
