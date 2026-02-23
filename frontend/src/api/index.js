@@ -1,11 +1,5 @@
 import axios from 'axios'
 import router from '@/router'
-// 환경변수에서 API URL 가져오기 (Railway 백엔드)
-// 개발 환경: /api (Vite 프록시)
-// 프로덕션: VITE_API_URL (Railway URL)
-const baseURL = import.meta.env.VITE_API_URL 
-  ? `${import.meta.env.VITE_API_URL}/api`
-  : '/api'
 
 // 환경변수에서 API URL 가져오기 (Render 백엔드)
 // 개발 환경: /api (Vite 프록시)
@@ -21,15 +15,6 @@ const api = axios.create({
     'Content-Type': 'application/json'
   }
 })
-
-
-
-
-
-
-
-
-
 
 api.interceptors.request.use(
   (config) => {
