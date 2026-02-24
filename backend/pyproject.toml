@@ -1,5 +1,6 @@
 [project]
 name = "clothing-system"
+version = "1.0.0"
 pythonVersion = "3.11"
 
 [project.scripts]
