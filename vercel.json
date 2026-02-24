@@ -9,10 +9,11 @@
       }
     },
     {
-      "src": "backend/app/main.py",
+      "src": "backend/",
       "use": "@vercel/python",
       "config": {
-        "runtime": "python3.11"
+        "runtime": "python3.11",
+        "installCommand": "pip install -r requirements.txt"
       }
     }
   ],
@@ -27,6 +28,6 @@
     }
   ],
   "env": {
-    "PYTHONPATH": "/var/task"
+    "PYTHONPATH": "backend"
   }
 }
