@@ -1,0 +1,6 @@
+[project]
+name = "clothing-system"
+pythonVersion = "3.11"
+
+[project.scripts]
+vercel-app = "app.main:app"
