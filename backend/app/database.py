@@ -2,8 +2,14 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
+# PostgreSQL 연결 문자열
+# 개발: 로컬 Docker PostgreSQL
+# 운영: Supabase PostgreSQL
+DEFAULT_DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/clothing_system"
+
 # 환경변수에서 DB URL 가져오기 (Supabase PostgreSQL)
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./clothing.db")
+# DATABASE_URL이 설정되지 않으면 로컬 PostgreSQL 사용
+DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
 
 # PostgreSQL 연결 문자열 변환 (postgres:// → postgresql://)
 if DATABASE_URL.startswith("postgres://"):
@@ -13,14 +19,14 @@ if DATABASE_URL.startswith("postgres://"):
 is_sqlite = DATABASE_URL.startswith("sqlite")
 
 if is_sqlite:
-    # 로컬 개발용 SQLite
+    # 로컬 개발용 SQLite (비추천)
     engine = create_engine(
         DATABASE_URL,
         connect_args={"check_same_thread": False},
         echo=False
     )
 else:
-    # 프로덕션용 PostgreSQL (Supabase)
+    # PostgreSQL (Supabase 또는 로컬 Docker)
     engine = create_engine(
         DATABASE_URL,
         pool_pre_ping=True,
